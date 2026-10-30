@@ -1,4 +1,6 @@
-on: [push, pull_request]
+# Manual only, to save Actions minutes: run it from the Actions tab or with
+# `gh workflow run CI`. Run the same checks locally before every push.
+on: [workflow_dispatch]
 
 name: CI
 

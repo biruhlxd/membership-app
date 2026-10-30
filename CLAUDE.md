@@ -69,7 +69,9 @@ community stay in the organization's learning platform.
 ## Working conventions
 
 - Before pushing, run all of: `npm test`, `npm run typecheck`, `npm run lint`,
-  `npm run build`, `npx prisma validate`. CI runs the same on every push.
+  `npm run build`, `npx prisma validate`. CI (GitHub Actions) runs the same
+  checks but only when started by hand, to save Actions minutes; do not turn
+  it back on for every push, and do not add Dependabot.
 - Record each change in `CHANGES.md` under "Unreleased".
 - Commit author email for this repo: biruh@biruh.org (never a USSEA address).
 - Plain, short wording in UI text, docs and commit messages.
