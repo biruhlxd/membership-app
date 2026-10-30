@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Plan setup in the admin (Plans page): name, customer tag, membership
+  product, joining price, renewal price and billing interval. Creates the
+  Shopify selling plan group (joining price on the first order, renewal price
+  from the second) and saves the plan with its tag. The form checks and the
+  selling plan input are tested pure functions. The GraphQL mutation is not yet
+  checked against Shopify's schema; do that before trying it on a store.
 - Membership rules as tested pure functions: renewal prices per cycle
   (joining vs renewal), billing-attempt idempotency keys, failed-payment
   retries (1, 3, 7 days, then lapse), member status and plan tags.
