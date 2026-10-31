@@ -86,20 +86,32 @@ community stay in the organization's learning platform.
 
 ## Next (Core)
 
-1. Done: plan setup, plan list and plan editing in the admin; Home setup
-   guide.
-2. Done and tested on the Biruh Tech dev store: `subscription_contracts/*`
-   webhooks sync `Membership` and customer tags
-   (`app/membership/contracts.server.ts`).
-3. Done, not yet tested on a store: renewals
-   (`app/membership/renewals.server.ts`), billing-attempt webhooks, Members
-   page with "Renew now", `/jobs/renewals` for a scheduler. Still to do:
-   renewal reminder and failed-payment emails (see TODO(emails)); hosting a
-   scheduler that calls `/jobs/renewals`.
-4. Mandatory privacy webhooks (customers/data_request, customers/redact,
-   shop/redact) before App Store review.
-5. Member portal (customer account extension): plan, renew, update card,
-   cancel.
+Status 2026-10-31 (dev store: biruh-tech.myshopify.com):
+
+- Tested on the store: plans (create, edit, list), plan picker theme block,
+  memberships + tags from contract webhooks, renewals at the renewal price
+  (Renew now), Members page with next renewal and last paid, privacy
+  webhooks (via `shopify app webhook trigger`).
+- Built, not yet tried on the store: member pricing (segment + automatic
+  discount per plan), members-only products (checkout validation function
+  `extensions/members-only`, page "Members-only products"), member portal
+  (`extensions/member-portal`, merchant must add the page to the customer
+  account menu in the checkout and accounts editor), failed-payment retries
+  and lapse.
+
+Still to do for Core:
+1. Emails: renewal reminder, failed payment, lapse (see TODO(emails)). Needs
+   an email provider (Biruh to choose).
+2. Hosting + a scheduler calling `/jobs/renewals` (Biruh to choose a host).
+3. Test a failed payment end to end (needs a declining card on a member).
+
+Then: Organizations, Credentials, Moodle connector, App Store work
+(Shopify app billing for the $39/$149/$399 tiers, product-page purchase
+options extension, listing), per the plan doc.
+
+Running the dev server: Claude can run `npm run dev` in the background and
+read its log. Before a Prisma migration, stop the dev server (its child
+processes lock Prisma's engine on Windows), migrate, then restart it.
 
 Shopify setup: the app is in the "Biruh Tech" Partner organization (public
 distribution). Subscription scopes are approved. Protected customer data
@@ -109,4 +121,6 @@ tasks are done (privacy policy, merchant agreement, retention + deletion
 webhooks, encrypted database and backups, access logging, incident policy).
 Do not change those answers to "Yes" until each is true.
 
-Open decisions (Biruh): company and product name; weekly hours available.
+Open decisions (Biruh): company and product name; weekly hours available;
+email provider; host; whether cancelling keeps access until the end of the
+paid period (today it ends access at once).
