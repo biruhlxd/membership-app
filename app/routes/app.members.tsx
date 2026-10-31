@@ -46,7 +46,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const memberships = await prisma.membership.findMany({
     where,
-    include: { plan: { select: { name: true } } },
+    include: {
+      plan: { select: { name: true } },
+      billingAttempts: {
+        where: { state: "SUCCEEDED" },
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+        select: { updatedAt: true },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -76,7 +84,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       failedAttempts: m.failedAttempts,
       nextAttemptAt: m.nextAttemptAt?.toLocaleDateString("en-US", dateFormat) ?? null,
       since: m.createdAt.toLocaleDateString("en-US", dateFormat),
-      lastPaid: m.lastPaidAt?.toLocaleDateString("en-US", dateFormat) ?? null,
+      // Before lastPaidAt was stored: the latest paid renewal, else the
+      // joining payment at purchase.
+      lastPaid: (
+        m.lastPaidAt ?? m.billingAttempts[0]?.updatedAt ?? m.createdAt
+      ).toLocaleDateString("en-US", dateFormat),
       nextRenewal: m.nextRenewalAt?.toLocaleDateString("en-US", dateFormat) ?? null,
       nextAmount:
         m.nextRenewalAmount && m.currency
