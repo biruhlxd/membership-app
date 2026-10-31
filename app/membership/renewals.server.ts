@@ -410,6 +410,20 @@ export async function runRenewals(admin: Admin, shop: string, now = new Date()) 
       results.push({ membershipId: id, result: { charged: false, reason: "error" } });
     }
   }
+  // Cancelled members whose paid period is over lose access now: re-syncing
+  // turns ENDING into CANCELLED and takes the plan tag away.
+  const ended = await prisma.membership.findMany({
+    where: { shop, status: "ENDING", accessEndsAt: { lte: now } },
+    select: { id: true, contractId: true },
+  });
+  for (const m of ended) {
+    try {
+      await syncContract(admin, shop, m.contractId);
+    } catch (error) {
+      console.error(`ending access for membership ${m.id} failed:`, error);
+    }
+  }
+
   // Reminders ride on the same run, so the scheduler that charges renewals
   // also sends the week-before notices.
   try {

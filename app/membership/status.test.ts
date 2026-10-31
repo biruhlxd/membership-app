@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  accessEndsAt,
   desiredTags,
   grantsAccess,
   membershipStatus,
@@ -124,5 +125,28 @@ describe("desiredTags", () => {
         { status: "CANCELLED", tag: "member-basic" },
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("cancelling at the end of the paid period", () => {
+  const now = new Date("2027-01-15T00:00:00Z");
+  const cancelled = { contractStatus: "CANCELLED" as const, failedAttempts: 0, dunningExhausted: false, now };
+
+  it("keeps a cancelled member ENDING, with access, until the paid period ends", () => {
+    const status = membershipStatus({ ...cancelled, accessEndsAt: new Date("2027-10-31T16:00:00Z") });
+    expect(status).toBe("ENDING");
+    expect(grantsAccess(status)).toBe(true);
+  });
+
+  it("ends access once that date has passed, or when nothing was paid ahead", () => {
+    expect(membershipStatus({ ...cancelled, accessEndsAt: new Date("2027-01-01T00:00:00Z") })).toBe("CANCELLED");
+    expect(membershipStatus({ ...cancelled, accessEndsAt: null })).toBe("CANCELLED");
+    expect(grantsAccess("CANCELLED")).toBe(false);
+  });
+
+  it("takes the next renewal date as the end of access, if it is still ahead", () => {
+    expect(accessEndsAt(new Date("2027-10-31T16:00:00Z"), now)).toEqual(new Date("2027-10-31T16:00:00Z"));
+    expect(accessEndsAt(new Date("2026-10-31T16:00:00Z"), now)).toBeNull();
+    expect(accessEndsAt(null, now)).toBeNull();
   });
 });

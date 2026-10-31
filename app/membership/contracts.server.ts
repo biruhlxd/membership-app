@@ -8,6 +8,7 @@
 import prisma from "../db.server";
 import type { Admin } from "./plans.server";
 import {
+  accessEndsAt,
   desiredTags,
   membershipStatus,
   tagChanges,
@@ -99,12 +100,23 @@ export async function syncContract(
   const existing = await prisma.membership.findUnique({
     where: { shop_contractId: { shop, contractId: contract.id } },
   });
+  // On cancellation, remember once how long the paid period lasts: the
+  // renewal that would have come next. Read before refreshSchedule clears
+  // the next renewal for a contract that is no longer active.
+  const now = new Date();
+  const endsAt =
+    contract.status === "CANCELLED"
+      ? existing?.accessEndsAt ?? accessEndsAt(existing?.nextRenewalAt ?? null, now)
+      : null;
+
   const status = membershipStatus({
     contractStatus: contract.status,
     failedAttempts: existing?.failedAttempts ?? 0,
     // When retries run out, the renewal job marks the contract FAILED in
     // Shopify, so the contract status already says the membership lapsed.
     dunningExhausted: false,
+    accessEndsAt: endsAt,
+    now,
   });
 
   await prisma.membership.upsert({
@@ -116,12 +128,14 @@ export async function syncContract(
       planId: plan.id,
       contractStatus: contract.status,
       status,
+      accessEndsAt: endsAt,
     },
     update: {
       customerId: contract.customer.id,
       planId: plan.id,
       contractStatus: contract.status,
       status,
+      accessEndsAt: endsAt,
     },
   });
 

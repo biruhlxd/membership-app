@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Named: Biruh Membership, by Biruh Tech (Biruh Alemnew). LICENSE.md is now
+  proprietary; Shopify's MIT notice for the template moved to
+  LICENSE-shopify-template.md.
+- Cancelling keeps access until the end of the paid period: the membership
+  becomes ENDING (still has the tag and member prices) until the date it
+  would have renewed, then the renewal run ends it. Members page shows
+  "Ending, access until …"; the member portal says so before and after
+  cancelling. Failed payments still end access straight away.
+- Emails are sent over SMTP (Nodemailer, configured in .env like PHPMailer
+  in Moodle), in the store's name with replies to the store's contact
+  email. Without SMTP settings they are still only logged.
 - Member emails: a renewal reminder 7 days before each renewal (sent by the
   renewal run), a payment-failed notice with the next retry date, and a
   membership-ended notice when retries run out. Each is sent at most once

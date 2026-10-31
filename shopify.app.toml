@@ -3,7 +3,7 @@
 client_id = "890494ed1a86cfd5a6f60eb1a8ce42b7"
 application_url = "https://example.com"
 embedded = true
-name = "Biruh Membership App"
+name = "Biruh Membership"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes

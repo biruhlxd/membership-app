@@ -12,6 +12,7 @@ export type ContractStatus =
 export type MembershipStatus =
   | "ACTIVE"
   | "PAST_DUE"
+  | "ENDING"
   | "PAUSED"
   | "LAPSED"
   | "CANCELLED";
@@ -22,12 +23,18 @@ export interface StatusInput {
   failedAttempts: number;
   /** True once dunning has run out of retries for that cycle. */
   dunningExhausted: boolean;
+  /** For a cancelled membership: the end of the period already paid for. */
+  accessEndsAt?: Date | null;
+  now?: Date;
 }
 
 export function membershipStatus(input: StatusInput): MembershipStatus {
   switch (input.contractStatus) {
-    case "CANCELLED":
-      return "CANCELLED";
+    case "CANCELLED": {
+      // A member who cancels keeps access until the paid period ends.
+      const now = input.now ?? new Date();
+      return input.accessEndsAt && input.accessEndsAt > now ? "ENDING" : "CANCELLED";
+    }
     case "PAUSED":
       return "PAUSED";
     case "EXPIRED":
@@ -39,9 +46,20 @@ export function membershipStatus(input: StatusInput): MembershipStatus {
   }
 }
 
-/** Past-due members keep access while retries run; it ends when they lapse. */
+/**
+ * Past-due members keep access while retries run; it ends when they lapse.
+ * Members who cancelled keep it until the period they paid for ends.
+ */
 export function grantsAccess(status: MembershipStatus): boolean {
-  return status === "ACTIVE" || status === "PAST_DUE";
+  return status === "ACTIVE" || status === "PAST_DUE" || status === "ENDING";
+}
+
+/**
+ * When a membership is cancelled, how long access lasts: until the renewal
+ * that would have come next (the paid period's end), if that is still ahead.
+ */
+export function accessEndsAt(nextRenewalAt: Date | null, now: Date): Date | null {
+  return nextRenewalAt && nextRenewalAt > now ? nextRenewalAt : null;
 }
 
 /**

@@ -100,8 +100,8 @@ Status 2026-10-31 (dev store: biruh-tech.myshopify.com):
   and lapse.
 
 Still to do for Core:
-1. Emails: renewal reminder, failed payment, lapse (see TODO(emails)). Needs
-   an email provider (Biruh to choose).
+1. Emails: built; sent over SMTP once .env has the biruh.org mailbox
+   settings (README "Email").
 2. Hosting + a scheduler calling `/jobs/renewals` (Biruh to choose a host).
 3. Test a failed payment end to end (needs a declining card on a member).
 
@@ -121,6 +121,9 @@ tasks are done (privacy policy, merchant agreement, retention + deletion
 webhooks, encrypted database and backups, access logging, incident policy).
 Do not change those answers to "Yes" until each is true.
 
-Open decisions (Biruh): company and product name; weekly hours available;
-email provider; host; whether cancelling keeps access until the end of the
-paid period (today it ends access at once).
+Decided 2026-10-31: product name "Biruh Membership"; company "Biruh Tech"
+(unregistered, so use Biruh Alemnew where a legal name is needed); email by
+SMTP from a biruh.org mailbox (settings in .env); cancelling keeps access
+until the end of the paid period. Hosting: Biruh's shared hosting at
+biruh.org is the candidate, to be checked (Node.js support, database, file
+limit). Open: weekly hours available.

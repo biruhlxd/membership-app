@@ -1,6 +1,7 @@
-# Membership app (working name)
+# Biruh Membership
 
-A Shopify membership app for associations and education organizations:
+Biruh Membership, by Biruh Tech (Biruh Alemnew): a Shopify membership app
+for associations and education organizations:
 membership plans on Shopify subscriptions, organization seats, credentials
 with expiry, and a link to a learning platform (Moodle first).
 
@@ -46,6 +47,24 @@ Renewals are charged by `POST /jobs/renewals`, which a scheduler should call
 about once an hour with `Authorization: Bearer <RENEWALS_JOB_SECRET>`. The
 route answers 404 until `RENEWALS_JOB_SECRET` is set. In development, use
 **Members → Run due renewals** or **Renew now** instead.
+
+## Email
+
+Member emails (renewal reminder, payment failed, membership ended) go out
+over SMTP, the same way PHPMailer does in Moodle. Put these in `.env` (never
+committed):
+
+```
+SMTP_HOST=mail.biruh.org
+SMTP_PORT=465
+SMTP_USER=membership@biruh.org
+SMTP_PASS=<the mailbox password>
+EMAIL_FROM=membership@biruh.org
+```
+
+Port 465 uses SSL; 587 uses STARTTLS. Each email shows the store's name as
+the sender and replies go to the store's contact email. Without
+`SMTP_HOST`, emails are only written to the server log.
 
 ## Access scopes
 

@@ -90,6 +90,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         m.lastPaidAt ?? m.billingAttempts[0]?.updatedAt ?? m.createdAt
       ).toLocaleDateString("en-US", dateFormat),
       nextRenewal: m.nextRenewalAt?.toLocaleDateString("en-US", dateFormat) ?? null,
+      accessEndsAt:
+        m.status === "ENDING"
+          ? m.accessEndsAt?.toLocaleDateString("en-US", dateFormat) ?? null
+          : null,
       nextAmount:
         m.nextRenewalAmount && m.currency
           ? new Intl.NumberFormat("en-US", { style: "currency", currency: m.currency }).format(
@@ -134,6 +138,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 const STATUS_TONE: Record<string, "success" | "warning" | "critical" | "neutral"> = {
   ACTIVE: "success",
   PAST_DUE: "warning",
+  ENDING: "warning",
   LAPSED: "critical",
   CANCELLED: "neutral",
   PAUSED: "neutral",
@@ -142,6 +147,7 @@ const STATUS_TONE: Record<string, "success" | "warning" | "critical" | "neutral"
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: "Active",
   PAST_DUE: "Past due",
+  ENDING: "Ending",
   LAPSED: "Lapsed",
   CANCELLED: "Cancelled",
   PAUSED: "Paused",
@@ -206,6 +212,9 @@ export default function Members() {
                         {m.failedAttempts} failed
                         {m.nextAttemptAt ? `, retry ${m.nextAttemptAt}` : ""}
                       </s-text>
+                    )}
+                    {m.accessEndsAt && (
+                      <s-text color="subdued"> access until {m.accessEndsAt}</s-text>
                     )}
                   </s-table-cell>
                   <s-table-cell>{m.since}</s-table-cell>

@@ -52,6 +52,13 @@ async function gql(query, variables) {
 const t = (key, options) => shopify.i18n.translate(key, options);
 
 // Customer account badges take only auto, neutral or critical.
+// A cancelled membership keeps access until the period already paid for
+// ends: the date it would have renewed.
+const endsLater = (c) =>
+  c.status === 'CANCELLED' && c.nextBillingDate && new Date(c.nextBillingDate) > new Date();
+
+const longDate = (iso) => shopify.i18n.formatDate(new Date(iso), {dateStyle: 'long'});
+
 const toneFor = (status) =>
   status === 'ACTIVE' ? 'auto' : status === 'FAILED' ? 'critical' : 'neutral';
 
@@ -122,7 +129,7 @@ function MemberPortal() {
               {active && c.nextBillingDate && (
                 <s-text>
                   {t('nextRenewal', {
-                    date: shopify.i18n.formatDate(new Date(c.nextBillingDate), {dateStyle: 'long'}),
+                    date: longDate(c.nextBillingDate),
                     price: line
                       ? shopify.i18n.formatCurrency(Number(line.currentPrice.amount), {
                           currency: line.currentPrice.currencyCode,
@@ -130,6 +137,9 @@ function MemberPortal() {
                       : '',
                   })}
                 </s-text>
+              )}
+              {endsLater(c) && (
+                <s-text>{t('accessUntil', {date: longDate(c.nextBillingDate)})}</s-text>
               )}
               {active && (
                 <s-stack direction="inline" gap="base">
@@ -144,7 +154,11 @@ function MemberPortal() {
               {confirming === c.id && (
                 <s-banner tone="warning" heading={t('confirmHeading')}>
                   <s-stack direction="block" gap="base">
-                    <s-text>{t('confirmBody')}</s-text>
+                    <s-text>
+                      {c.nextBillingDate
+                        ? t('confirmBody', {date: longDate(c.nextBillingDate)})
+                        : t('confirmBodyNow')}
+                    </s-text>
                     <s-stack direction="inline" gap="base">
                       <s-button
                         variant="primary"

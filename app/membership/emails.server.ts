@@ -1,11 +1,14 @@
 // Sending member emails: who to, once only, and through which channel.
 //
-// No email provider is connected yet (Biruh to choose one). Until then every
-// email is written to the server log and recorded in EmailLog as LOGGED, so
-// the timing and content can be checked. Connecting a provider means
-// replacing `deliver` and nothing else.
+// Emails go out over SMTP, set like PHPMailer in Moodle, from these settings
+// in .env: SMTP_HOST, SMTP_PORT (465 = SSL, 587 = STARTTLS), SMTP_USER,
+// SMTP_PASS and EMAIL_FROM (the address, e.g. membership@biruh.org). Each
+// email is sent in the store's name, with replies going to the store.
+// Without SMTP_HOST, emails are written to the server log and recorded in
+// EmailLog as LOGGED, so timing and wording can still be checked.
 //
 // The query is validated against the 2026-10 Admin API schema.
+import nodemailer from "nodemailer";
 import prisma from "../db.server";
 import {
   emailKey,
@@ -22,6 +25,7 @@ const CONTEXT = `#graphql
   query membershipEmailContext($customerId: ID!) {
     shop {
       name
+      contactEmail
     }
     customer(id: $customerId) {
       firstName
@@ -31,9 +35,46 @@ const CONTEXT = `#graphql
     }
   }`;
 
-async function deliver(to: string, email: EmailContent): Promise<"LOGGED" | "SENT"> {
-  console.log(`email (not sent, no provider yet) to ${to}: ${email.subject}\n${email.text}`);
-  return "LOGGED";
+let transport: nodemailer.Transporter | null | undefined;
+
+function smtp() {
+  if (transport !== undefined) return transport;
+  const host = process.env.SMTP_HOST;
+  if (!host || !process.env.EMAIL_FROM) {
+    transport = null;
+    return transport;
+  }
+  const port = Number(process.env.SMTP_PORT ?? 465);
+  transport = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: process.env.SMTP_USER
+      ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS ?? "" }
+      : undefined,
+  });
+  return transport;
+}
+
+async function deliver(
+  to: string,
+  email: EmailContent,
+  from: { shopName: string; replyTo: string | null },
+): Promise<"LOGGED" | "SENT"> {
+  const mailer = smtp();
+  if (!mailer) {
+    console.log(`email (not sent, SMTP not set up) to ${to}: ${email.subject}\n${email.text}`);
+    return "LOGGED";
+  }
+  await mailer.sendMail({
+    from: { name: from.shopName, address: process.env.EMAIL_FROM! },
+    replyTo: from.replyTo ?? undefined,
+    to,
+    subject: email.subject,
+    text: email.text,
+  });
+  console.log(`email sent to ${to}: ${email.subject}`);
+  return "SENT";
 }
 
 const longDate = (d: Date) =>
@@ -82,7 +123,10 @@ async function notify(
   await prisma.emailLog.create({
     data: { membershipId, kind, key, to, subject: email.subject, delivery: "PENDING" },
   });
-  const delivery = await deliver(to, email);
+  const delivery = await deliver(to, email, {
+    shopName: data.shop.name,
+    replyTo: data.shop.contactEmail ?? null,
+  });
   await prisma.emailLog.update({
     where: { membershipId_kind_key: { membershipId, kind, key } },
     data: { delivery },

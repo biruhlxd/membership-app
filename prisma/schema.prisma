@@ -76,6 +76,8 @@ model Membership {
   nextRenewalAmount String? // decimal, e.g. "90.00"
   currency          String?
   lastPaidAt        DateTime?
+  // Set when the member cancels: access lasts until the paid period ends.
+  accessEndsAt      DateTime?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   billingAttempts   BillingAttempt[]

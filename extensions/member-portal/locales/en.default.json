@@ -8,15 +8,17 @@
   "updateCard": "Update payment card",
   "cancel": "Cancel membership",
   "confirmHeading": "Cancel your membership?",
-  "confirmBody": "Your membership ends now and you lose member access and member prices. You won't be charged again.",
+  "confirmBody": "You keep member access and member prices until {{date}}, the end of the period you paid for. You won't be charged again.",
   "confirmYes": "Yes, cancel",
   "confirmNo": "Keep my membership",
-  "cancelled": "Your membership is cancelled.",
+  "cancelled": "Your membership is cancelled. You keep access until the end of the period you paid for.",
   "status": {
     "ACTIVE": "Active",
     "PAUSED": "Paused",
     "FAILED": "Payment failed",
     "EXPIRED": "Ended",
     "CANCELLED": "Cancelled"
-  }
+  },
+  "confirmBodyNow": "Your membership ends now. You won't be charged again.",
+  "accessUntil": "Cancelled. Your member access continues until {{date}}."
 }
