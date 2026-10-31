@@ -239,7 +239,14 @@ export async function refreshSchedule(admin: Admin, membershipId: string) {
     });
     return;
   }
-  const cycle = nextUnbilledCycle(await upcomingCycles(admin, m.id, m.contractId));
+  const cycles = await upcomingCycles(admin, m.id, m.contractId);
+  const cycle = nextUnbilledCycle(cycles);
+  if (!cycle) {
+    console.warn(
+      `membership ${m.id}: no unpaid renewal among the cycles Shopify returned:`,
+      JSON.stringify(cycles),
+    );
+  }
   const { subscriptionContract } = await gql<{
     subscriptionContract: { lines: { nodes: ContractLine[] } } | null;
   }>(admin, CONTRACT_LINES, { id: m.contractId });
