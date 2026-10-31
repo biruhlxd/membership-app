@@ -82,20 +82,25 @@ community stay in the organization's learning platform.
 
 ## Next (Core)
 
-1. Plan setup in the admin: create a selling plan group on a membership
-   product with a joining price and a renewal price; save `MembershipPlan`
-   with its tag.
-2. Webhooks: `subscription_contracts/create` and `/update` create and update
-   `Membership`; set tags from `membershipStatus` + `tagChanges`.
-   Billing-attempt success, failure and action-required webhooks update
-   `BillingAttempt` and run `afterFailure` (dunning).
-   These topics need the protected scopes, so build them against the docs
-   and test them with fixtures until Shopify approves access.
+1. Done: plan setup, plan list and plan editing in the admin; Home setup
+   guide.
+2. Done: `subscription_contracts/*` webhooks sync `Membership` and customer
+   tags (`app/membership/contracts.server.ts`). Not yet tested on a store.
+   To do: billing-attempt success, failure and action-required webhooks
+   update `BillingAttempt` and run `afterFailure` (dunning).
 3. Renewal job: find due billing cycles, create billing attempts with the
    idempotency key, schedule retries from `nextAttemptAt`.
 4. Mandatory privacy webhooks (customers/data_request, customers/redact,
    shop/redact) before App Store review.
 5. Member portal (customer account extension): plan, renew, update card,
    cancel.
+
+Shopify setup: the app is in the "Biruh Tech" Partner organization (public
+distribution). Subscription scopes are approved. Protected customer data
+(name, email) is selected for development only; Shopify's review was refused
+because several data protection answers are honestly "No" until the launch
+tasks are done (privacy policy, merchant agreement, retention + deletion
+webhooks, encrypted database and backups, access logging, incident policy).
+Do not change those answers to "Yes" until each is true.
 
 Open decisions (Biruh): company and product name; weekly hours available.
