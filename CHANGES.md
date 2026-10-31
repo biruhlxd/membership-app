@@ -8,6 +8,8 @@
 - Database tables for plans, memberships and billing attempts.
 - Vitest; CI runs Prisma validation, type check, lint, tests and build,
   started by hand only (Actions minutes). Dependabot removed.
+- Added shopify.web.toml (the template only had the uninstantiated .liquid
+  file), so `npm run dev` starts the app server and tunnel.
 - Removed the template repository's own files (its workflows, changelog,
   README, contributor files); the lockfile is now committed.
 
