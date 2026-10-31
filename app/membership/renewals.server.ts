@@ -189,9 +189,11 @@ async function alignPrices(admin: Admin, contractId: string, cycleIndex: number)
   return changes;
 }
 
-// How many cycles to read after the last paid one. Missed cycles (the job
-// was down) are inside this window and are charged oldest first.
-const CYCLES_AHEAD = 10;
+// How many cycles to read after the last paid one. Shopify refuses ranges
+// that reach too far ahead ("Upcoming billing cycle selected past limit": on
+// a yearly plan cycles 3-12 failed, 1-5 worked), so keep it small. Missed
+// cycles are charged oldest first; any beyond the window come next run.
+const CYCLES_AHEAD = 3;
 
 async function gql<T>(
   admin: Admin,
