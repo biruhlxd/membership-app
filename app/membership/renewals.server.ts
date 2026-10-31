@@ -16,6 +16,7 @@ import type { Admin } from "./plans.server";
 import {
   dueCycle,
   linePriceChanges,
+  nextUnbilledCycle,
   normalizeErrorCode,
   onChargeFailed,
   type BillingCycle,
@@ -69,18 +70,6 @@ const FAIL_CONTRACT = `#graphql
         field
         message
       }
-    }
-  }`;
-
-const CYCLE_AT = `#graphql
-  query membershipNextCycle($contractId: ID!, $date: DateTime!) {
-    subscriptionBillingCycle(
-      billingCycleInput: { contractId: $contractId, selector: { date: $date } }
-    ) {
-      cycleIndex
-      billingAttemptExpectedDate
-      status
-      skipped
     }
   }`;
 
@@ -226,6 +215,28 @@ async function gql<T>(
   return body.data as T;
 }
 
+/**
+ * The contract's cycles after the last one this app was paid for. Searched
+ * by cycle number, not date: Shopify refuses a date range that starts before
+ * the contract existed. Shopify's status on each cycle stays the authority.
+ */
+async function upcomingCycles(admin: Admin, membershipId: string, contractId: string) {
+  const lastPaid = await prisma.billingAttempt.findFirst({
+    where: { membershipId, state: "SUCCEEDED" },
+    orderBy: { cycleIndex: "desc" },
+    select: { cycleIndex: true },
+  });
+  const startIndex = (lastPaid?.cycleIndex ?? 0) + 1;
+  const { subscriptionBillingCycles } = await gql<{
+    subscriptionBillingCycles: { nodes: BillingCycle[] };
+  }>(admin, DUE_CYCLES, {
+    contractId,
+    startIndex,
+    endIndex: startIndex + CYCLES_AHEAD - 1,
+  });
+  return subscriptionBillingCycles?.nodes ?? [];
+}
+
 export type RenewResult =
   | { charged: true; cycleIndex: number; attempt: number }
   | { charged: false; reason: string };
@@ -258,23 +269,7 @@ export async function renewMembership(
   });
   if (pending > 0) return { charged: false, reason: "a charge is still in progress" };
 
-  // Search by cycle number, not date: a date range that starts before the
-  // contract existed is refused by Shopify. Start after the last cycle this
-  // app was paid for; dueCycle then keeps the unbilled ones that are due.
-  const lastPaid = await prisma.billingAttempt.findFirst({
-    where: { membershipId: m.id, state: "SUCCEEDED" },
-    orderBy: { cycleIndex: "desc" },
-    select: { cycleIndex: true },
-  });
-  const startIndex = (lastPaid?.cycleIndex ?? 0) + 1;
-  const { subscriptionBillingCycles } = await gql<{
-    subscriptionBillingCycles: { nodes: BillingCycle[] };
-  }>(admin, DUE_CYCLES, {
-    contractId: m.contractId,
-    startIndex,
-    endIndex: startIndex + CYCLES_AHEAD - 1,
-  });
-  const cycle = dueCycle(subscriptionBillingCycles?.nodes ?? [], now);
+  const cycle = dueCycle(await upcomingCycles(admin, m.id, m.contractId), now);
   if (!cycle) return { charged: false, reason: "nothing due" };
 
   // Never charge a price the cycle doesn't owe: if the price can't be set,
@@ -377,11 +372,11 @@ export async function renewNow(admin: Admin, membershipId: string) {
   const m = await prisma.membership.findUnique({ where: { id: membershipId } });
   if (!m) return { charged: false, reason: "membership not found" } as RenewResult;
 
+  // The next cycle still to be paid, not the cycle that contains today:
+  // today usually sits inside a cycle that is already billed.
   const now = new Date();
-  const { subscriptionBillingCycle: cycle } = await gql<{
-    subscriptionBillingCycle: BillingCycle | null;
-  }>(admin, CYCLE_AT, { contractId: m.contractId, date: now.toISOString() });
-  if (!cycle) return { charged: false, reason: "no billing cycle found" } as RenewResult;
+  const cycle = nextUnbilledCycle(await upcomingCycles(admin, m.id, m.contractId));
+  if (!cycle) return { charged: false, reason: "no unpaid renewal found" } as RenewResult;
 
   if (new Date(cycle.billingAttemptExpectedDate) > now) {
     const moved = (

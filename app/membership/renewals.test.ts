@@ -3,6 +3,7 @@ import { DEFAULT_DUNNING } from "./dunning";
 import {
   dueCycle,
   linePriceChanges,
+  nextUnbilledCycle,
   normalizeErrorCode,
   onChargeFailed,
 } from "./renewals";
@@ -101,5 +102,25 @@ describe("linePriceChanges", () => {
     expect(
       linePriceChanges([{ ...line("50.0"), pricingPolicy: null }], 1),
     ).toEqual([]);
+  });
+});
+
+describe("nextUnbilledCycle", () => {
+  it("passes over a billed cycle to the next one, even if it's a year away", () => {
+    expect(
+      nextUnbilledCycle([
+        cycle(1, "2026-10-31T12:00:00Z", "BILLED"),
+        cycle(2, "2028-10-31T12:00:00Z"),
+      ])?.cycleIndex,
+    ).toBe(2);
+  });
+
+  it("passes over skipped cycles", () => {
+    expect(
+      nextUnbilledCycle([
+        cycle(2, "2028-10-31T12:00:00Z", "UNBILLED", true),
+        cycle(3, "2029-10-31T12:00:00Z"),
+      ])?.cycleIndex,
+    ).toBe(3);
   });
 });

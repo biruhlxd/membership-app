@@ -96,3 +96,15 @@ export function linePriceChanges(
   }
   return changes;
 }
+
+/**
+ * The next cycle that still has to be paid, whatever its date: the one
+ * "Renew now" brings forward. Billed and skipped cycles are passed over; a
+ * refund does not make a billed cycle unbilled.
+ */
+export function nextUnbilledCycle(cycles: BillingCycle[]): BillingCycle | null {
+  const open = cycles
+    .filter((c) => c.status === "UNBILLED" && !c.skipped)
+    .sort((a, b) => a.cycleIndex - b.cycleIndex);
+  return open[0] ?? null;
+}
