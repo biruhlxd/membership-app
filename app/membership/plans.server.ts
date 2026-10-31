@@ -1,9 +1,9 @@
 // Plan setup against Shopify and the database. The rules (form checks, the
 // selling plan group input) live in plan.ts.
 //
-// NOTE: the GraphQL below was written without access to Shopify's schema
-// (dev MCP and shopify.dev were unreachable). Validate it against the 2026-10
-// Admin API schema before running it on a store.
+// Both mutations are validated against the 2026-10 Admin API schema. They need
+// write_products and write_purchase_options; the protected subscription
+// scopes are not required for plan setup.
 import prisma from "../db.server";
 import { sellingPlanGroupInput, type PlanInput } from "./plan";
 
@@ -35,6 +35,17 @@ const CREATE_GROUP = `#graphql
     }
   }`;
 
+const DELETE_GROUP = `#graphql
+  mutation membershipSellingPlanGroupDelete($id: ID!) {
+    sellingPlanGroupDelete(id: $id) {
+      deletedSellingPlanGroupId
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
 export type CreatePlanResult =
   | { ok: true }
   | { ok: false; error: string };
@@ -44,33 +55,53 @@ export async function createPlan(
   shop: string,
   plan: PlanInput,
 ): Promise<CreatePlanResult> {
-  // Tags must be unique per shop; check before anything is made in Shopify.
-  const taken = await prisma.membershipPlan.findFirst({
-    where: { shop, tag: { equals: plan.tag } },
+  // Tags must be unique per shop, ignoring case as Shopify does; check before
+  // anything is made in Shopify.
+  const existing = await prisma.membershipPlan.findMany({
+    where: { shop },
+    select: { tag: true },
   });
-  if (taken) return { ok: false, error: `Another plan already uses the tag "${plan.tag}".` };
+  const wanted = plan.tag.toLowerCase();
+  if (existing.some((p) => p.tag.toLowerCase() === wanted)) {
+    return { ok: false, error: `Another plan already uses the tag "${plan.tag}".` };
+  }
 
-  const response = await admin.graphql(CREATE_GROUP, {
-    variables: {
-      input: sellingPlanGroupInput(plan),
-      resources: { productIds: [plan.productId] },
-    },
-  });
-  const { data } = await response.json();
-  const result = data?.sellingPlanGroupCreate;
+  let result;
+  try {
+    const response = await admin.graphql(CREATE_GROUP, {
+      variables: {
+        input: sellingPlanGroupInput(plan),
+        resources: { productIds: [plan.productId] },
+      },
+    });
+    result = (await response.json()).data?.sellingPlanGroupCreate;
+  } catch {
+    return { ok: false, error: "Shopify could not create the plan. Try again." };
+  }
   const errors: { message: string }[] = result?.userErrors ?? [];
+  const groupId: string | undefined = result?.sellingPlanGroup?.id;
   const sellingPlanId: string | undefined =
     result?.sellingPlanGroup?.sellingPlans?.nodes?.[0]?.id;
-  if (errors.length > 0 || !sellingPlanId) {
+  if (errors.length > 0 || !groupId || !sellingPlanId) {
     return {
       ok: false,
       error: errors.map((e) => e.message).join(" ") || "Shopify could not create the plan.",
     };
   }
 
-  await prisma.membershipPlan.create({
-    data: { shop, name: plan.name, sellingPlanId, tag: plan.tag },
-  });
+  try {
+    await prisma.membershipPlan.create({
+      data: { shop, name: plan.name, sellingPlanId, tag: plan.tag },
+    });
+  } catch {
+    // Undo the Shopify side so a plan never exists in Shopify without the app
+    // knowing about it. Best effort: if this fails too, the merchant can
+    // delete the purchase option from the product.
+    await admin
+      .graphql(DELETE_GROUP, { variables: { id: groupId } })
+      .catch(() => undefined);
+    return { ok: false, error: "The plan could not be saved. Try again." };
+  }
   return { ok: true };
 }
 
