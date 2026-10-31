@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Admin pages on Shopify's patterns: Home has a setup guide (create a plan,
+  get subscription approval, first member) and member counts; Plans is a list
+  with a table and an empty state; Create plan is its own page with money and
+  number fields, returning to the list with a toast. Removed the template's
+  demo home and "Additional page".
 - Saving a plan makes its product a membership product: every variant priced
   at the joining price (no fake "saving" on the storefront) and sold only
   through a plan (no one-time purchase). If Shopify refuses, the plan is kept

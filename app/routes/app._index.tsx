@@ -1,251 +1,143 @@
-import { useEffect } from "react";
-import type {
-  ActionFunctionArgs,
-  HeadersFunction,
-  LoaderFunctionArgs,
-} from "react-router";
-import { useFetcher } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
-import { authenticate } from "../shopify.server";
+import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import prisma from "../db.server";
+import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
-
-  return null;
-};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
-    `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
-                }
-              }
-            }
-          }
-        }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
-
-  const product = responseJson.data!.productCreate!.product!;
-  const variantId = product.variants.edges[0]!.node!.id!;
-
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
-        }
-      }
-    }`,
-    {
-      variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
-  );
-
-  const variantResponseJson = await variantResponse.json();
-
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
+  const [plans, active, pastDue] = await Promise.all([
+    prisma.membershipPlan.count({ where: { shop } }),
+    prisma.membership.count({ where: { shop, status: "ACTIVE" } }),
+    prisma.membership.count({ where: { shop, status: "PAST_DUE" } }),
+  ]);
+  const scopes = (session.scope ?? "").split(",");
   return {
-    product: responseJson!.data!.productCreate!.product,
-    variant:
-      variantResponseJson!.data!.productVariantsBulkUpdate!.productVariants,
+    plans,
+    active,
+    pastDue,
+    subscriptionAccess: scopes.includes("write_own_subscription_contracts"),
   };
 };
 
-export default function Index() {
-  const fetcher = useFetcher<typeof action>();
+type Step = {
+  done: boolean;
+  title: string;
+  body: string;
+  action?: { label: string; href: string; external?: boolean };
+};
 
-  const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
+export default function Home() {
+  const { plans, active, pastDue, subscriptionAccess } =
+    useLoaderData<typeof loader>();
 
-  useEffect(() => {
-    if (fetcher.data?.product?.id) {
-      shopify.toast.show("Product created");
-    }
-  }, [fetcher.data?.product?.id, shopify]);
-
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
+  const steps: Step[] = [
+    {
+      done: plans > 0,
+      title: "Create a membership plan",
+      body: "Choose the product members buy, the joining price and the renewal price.",
+      action: { label: "Create plan", href: "/app/plans/new" },
+    },
+    {
+      done: subscriptionAccess,
+      title: "Get Shopify's approval for renewals",
+      body: "Charging renewals needs Shopify's approval to manage subscription contracts. Request it in the Partner Dashboard under API access requests.",
+      action: {
+        label: "Open Partner Dashboard",
+        href: "https://partners.shopify.com",
+        external: true,
+      },
+    },
+    {
+      done: active + pastDue > 0,
+      title: "Welcome your first member",
+      body: "Members appear here after they buy a plan in your store.",
+    },
+  ];
+  const completed = steps.filter((s) => s.done).length;
 
   return (
-    <s-page heading="Shopify app template">
-      <s-button slot="primary-action" onClick={generateProduct}>
-        Generate a product
-      </s-button>
+    <s-page heading="Membership">
+      {completed < steps.length && (
+        <s-section heading="Setup guide">
+          <s-stack direction="block" gap="base">
+            <s-paragraph color="subdued">
+              {completed} of {steps.length} steps completed
+            </s-paragraph>
+            <s-box borderRadius="base" border="base" background="base">
+              {steps.map((step, i) => (
+                <s-box key={step.title}>
+                  {i > 0 && <s-divider />}
+                  <s-grid
+                    gridTemplateColumns="auto 1fr"
+                    gap="base"
+                    padding="base"
+                    alignItems="start"
+                  >
+                    <s-icon
+                      type={step.done ? "check-circle" : "circle-dashed"}
+                      tone={step.done ? "success" : "neutral"}
+                    />
+                    <s-stack direction="block" gap="small-200">
+                      <s-text type="strong">{step.title}</s-text>
+                      {!step.done && (
+                        <>
+                          <s-paragraph color="subdued">{step.body}</s-paragraph>
+                          {step.action && (
+                            <s-stack direction="inline">
+                              <s-button
+                                href={step.action.href}
+                                {...(step.action.external
+                                  ? { target: "_blank" }
+                                  : { variant: "primary" })}
+                              >
+                                {step.action.label}
+                              </s-button>
+                            </s-stack>
+                          )}
+                        </>
+                      )}
+                    </s-stack>
+                  </s-grid>
+                </s-box>
+              ))}
+            </s-box>
+          </s-stack>
+        </s-section>
+      )}
 
-      <s-section heading="Congrats on creating a new Shopify app 🎉">
-        <s-paragraph>
-          This embedded app template uses{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/tools/app-bridge"
-            target="_blank"
-          >
-            App Bridge
-          </s-link>{" "}
-          interface examples like an{" "}
-          <s-link href="/app/additional">additional page in the app nav</s-link>
-          , as well as an{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            Admin GraphQL
-          </s-link>{" "}
-          mutation demo, to provide a starting point for app development.
-        </s-paragraph>
-      </s-section>
-      <s-section heading="Get started with products">
-        <s-paragraph>
-          Generate a product with GraphQL and get the JSON output for that
-          product. Learn more about the{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-            target="_blank"
-          >
-            productCreate
-          </s-link>{" "}
-          mutation in our API references.
-        </s-paragraph>
-        <s-stack direction="inline" gap="base">
-          <s-button
-            onClick={generateProduct}
-            {...(isLoading ? { loading: true } : {})}
-          >
-            Generate a product
-          </s-button>
-          {fetcher.data?.product && (
-            <s-button
-              onClick={() => {
-                shopify.intents.invoke?.("edit:shopify/Product", {
-                  value: fetcher.data?.product?.id,
-                });
-              }}
-              target="_blank"
-              variant="tertiary"
-            >
-              Edit product
-            </s-button>
-          )}
-        </s-stack>
-        {fetcher.data?.product && (
-          <s-section heading="productCreate mutation">
-            <s-stack direction="block" gap="base">
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.product, null, 2)}</code>
-                </pre>
-              </s-box>
-
-              <s-heading>productVariantsBulkUpdate mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.variant, null, 2)}</code>
-                </pre>
-              </s-box>
-            </s-stack>
-          </s-section>
-        )}
-      </s-section>
-
-      <s-section slot="aside" heading="App template specs">
-        <s-paragraph>
-          <s-text>Framework: </s-text>
-          <s-link href="https://reactrouter.com/" target="_blank">
-            React Router
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Interface: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/app-home/using-polaris-components"
-            target="_blank"
-          >
-            Polaris web components
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>API: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            GraphQL
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Database: </s-text>
-          <s-link href="https://www.prisma.io/" target="_blank">
-            Prisma
-          </s-link>
-        </s-paragraph>
-      </s-section>
-
-      <s-section slot="aside" heading="Next steps">
-        <s-unordered-list>
-          <s-list-item>
-            Build an{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/getting-started/build-app-example"
-              target="_blank"
-            >
-              example app
-            </s-link>
-          </s-list-item>
-          <s-list-item>
-            Explore Shopify&apos;s API with{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/tools/graphiql-admin-api"
-              target="_blank"
-            >
-              GraphiQL
-            </s-link>
-          </s-list-item>
-        </s-unordered-list>
+      <s-section heading="Members">
+        <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base">
+          <Metric label="Active members" value={active} />
+          <Metric label="Past due" value={pastDue} />
+          <Metric label="Plans" value={plans} href="/app/plans" />
+        </s-grid>
       </s-section>
     </s-page>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: number;
+  href?: string;
+}) {
+  return (
+    <s-box padding="base" border="base" borderRadius="base">
+      <s-stack direction="block" gap="small-200">
+        {href ? (
+          <s-link href={href}>{label}</s-link>
+        ) : (
+          <s-text color="subdued">{label}</s-text>
+        )}
+        <s-heading>{value}</s-heading>
+      </s-stack>
+    </s-box>
   );
 }
 
