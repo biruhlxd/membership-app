@@ -66,6 +66,11 @@ model Membership {
   currentCycleIndex Int?
   failedAttempts    Int              @default(0)
   nextAttemptAt     DateTime?
+  // Shown on the Members page; refreshed from Shopify on every change.
+  nextRenewalAt     DateTime?
+  nextRenewalAmount String? // decimal, e.g. "90.00"
+  currency          String?
+  lastPaidAt        DateTime?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   billingAttempts   BillingAttempt[]

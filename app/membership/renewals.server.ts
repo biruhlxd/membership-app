@@ -17,6 +17,7 @@ import {
   dueCycle,
   linePriceChanges,
   nextUnbilledCycle,
+  renewalAmount,
   normalizeErrorCode,
   onChargeFailed,
   type BillingCycle,
@@ -80,8 +81,10 @@ const CONTRACT_LINES = `#graphql
       lines(first: 10) {
         nodes {
           id
+          quantity
           currentPrice {
             amount
+            currencyCode
           }
           pricingPolicy {
             basePrice {
@@ -219,6 +222,38 @@ async function upcomingCycles(admin: Admin, membershipId: string, contractId: st
     endIndex: startIndex + CYCLES_AHEAD - 1,
   });
   return subscriptionBillingCycles?.nodes ?? [];
+}
+
+/**
+ * Store the membership's next renewal date and amount, read from Shopify, for
+ * the Members page. Called after every change: purchase, contract update,
+ * renewal result.
+ */
+export async function refreshSchedule(admin: Admin, membershipId: string) {
+  const m = await prisma.membership.findUnique({ where: { id: membershipId } });
+  if (!m) return;
+  if (m.contractStatus !== "ACTIVE") {
+    await prisma.membership.update({
+      where: { id: m.id },
+      data: { nextRenewalAt: null, nextRenewalAmount: null },
+    });
+    return;
+  }
+  const cycle = nextUnbilledCycle(await upcomingCycles(admin, m.id, m.contractId));
+  const { subscriptionContract } = await gql<{
+    subscriptionContract: { lines: { nodes: ContractLine[] } } | null;
+  }>(admin, CONTRACT_LINES, { id: m.contractId });
+  const total = cycle
+    ? renewalAmount(subscriptionContract?.lines.nodes ?? [], cycle.cycleIndex)
+    : null;
+  await prisma.membership.update({
+    where: { id: m.id },
+    data: {
+      nextRenewalAt: cycle ? new Date(cycle.billingAttemptExpectedDate) : null,
+      nextRenewalAmount: total?.amount ?? null,
+      currency: total?.currency ?? m.currency,
+    },
+  });
 }
 
 export type RenewResult =
@@ -413,9 +448,15 @@ export async function recordAttemptResult(
     });
     await prisma.membership.update({
       where: { id: row.membershipId },
-      data: { failedAttempts: 0, nextAttemptAt: null, currentCycleIndex: null },
+      data: {
+        failedAttempts: 0,
+        nextAttemptAt: null,
+        currentCycleIndex: null,
+        lastPaidAt: now,
+      },
     });
     await syncContract(admin, shop, row.membership.contractId);
+    await refreshSchedule(admin, row.membershipId);
     return { recorded: true, state: "SUCCEEDED" };
   }
 
@@ -426,6 +467,7 @@ export async function recordAttemptResult(
     data: { state: challenged ? "ACTION_REQUIRED" : "FAILED", errorCode: code },
   });
   const outcome = await handleFailure(admin, shop, row.membershipId, code, now);
+  await refreshSchedule(admin, row.membershipId);
   return { recorded: true, state: challenged ? "ACTION_REQUIRED" : "FAILED", outcome };
 }
 

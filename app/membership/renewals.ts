@@ -59,7 +59,8 @@ export function onChargeFailed(
 /** A contract line as the Admin API returns it (only the fields read here). */
 export interface ContractLine {
   id: string;
-  currentPrice: { amount: string };
+  quantity?: number;
+  currentPrice: { amount: string; currencyCode?: string };
   pricingPolicy: {
     basePrice: { amount: string };
     cycleDiscounts: { afterCycle: number; computedPrice: { amount: string } }[];
@@ -83,14 +84,7 @@ export function linePriceChanges(
   const changes: { lineId: string; price: string }[] = [];
   for (const line of lines) {
     if (!line.pricingPolicy) continue;
-    const owed = priceForOrder(
-      Number(line.pricingPolicy.basePrice.amount),
-      line.pricingPolicy.cycleDiscounts.map((d) => ({
-        afterCycle: d.afterCycle,
-        amount: Number(d.computedPrice.amount),
-      })),
-      cycleIndex,
-    );
+    const owed = owedPrice(line, cycleIndex);
     if (cents(owed) !== cents(line.currentPrice.amount)) {
       changes.push({ lineId: line.id, price: owed.toFixed(2) });
     }
@@ -108,4 +102,31 @@ export function nextUnbilledCycle(cycles: BillingCycle[]): BillingCycle | null {
     .filter((c) => c.status === "UNBILLED" && !c.skipped)
     .sort((a, b) => a.cycleIndex - b.cycleIndex);
   return open[0] ?? null;
+}
+
+function owedPrice(line: ContractLine, cycleIndex: number): number {
+  if (!line.pricingPolicy) return Number(line.currentPrice.amount);
+  return priceForOrder(
+    Number(line.pricingPolicy.basePrice.amount),
+    line.pricingPolicy.cycleDiscounts.map((d) => ({
+      afterCycle: d.afterCycle,
+      amount: Number(d.computedPrice.amount),
+    })),
+    cycleIndex,
+  );
+}
+
+/** What billing cycle `cycleIndex` will charge in all: each line's owed price times its quantity. */
+export function renewalAmount(
+  lines: ContractLine[],
+  cycleIndex: number,
+): { amount: string; currency: string | null } {
+  const total = lines.reduce(
+    (sum, line) => sum + cents(owedPrice(line, cycleIndex)) * (line.quantity ?? 1),
+    0,
+  );
+  return {
+    amount: (total / 100).toFixed(2),
+    currency: lines[0]?.currentPrice.currencyCode ?? null,
+  };
 }

@@ -7,7 +7,7 @@ import { useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
-import { renewNow, runRenewals } from "../membership/renewals.server";
+import { refreshSchedule, renewNow, runRenewals } from "../membership/renewals.server";
 
 const CUSTOMERS = `#graphql
   query membershipCustomers($ids: [ID!]!) {
@@ -28,8 +28,24 @@ const dateFormat: Intl.DateTimeFormatOptions = {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
+  const where = { shop: session.shop };
+
+  // Memberships from before the schedule was stored get it on first view.
+  const missing = await prisma.membership.findMany({
+    where: { ...where, contractStatus: "ACTIVE", nextRenewalAt: null },
+    select: { id: true },
+    take: 20,
+  });
+  for (const { id } of missing) {
+    try {
+      await refreshSchedule(admin, id);
+    } catch (error) {
+      console.error(`schedule refresh for membership ${id} failed:`, error);
+    }
+  }
+
   const memberships = await prisma.membership.findMany({
-    where: { shop: session.shop },
+    where,
     include: { plan: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -60,6 +76,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       failedAttempts: m.failedAttempts,
       nextAttemptAt: m.nextAttemptAt?.toLocaleDateString("en-US", dateFormat) ?? null,
       since: m.createdAt.toLocaleDateString("en-US", dateFormat),
+      lastPaid: m.lastPaidAt?.toLocaleDateString("en-US", dateFormat) ?? null,
+      nextRenewal: m.nextRenewalAt?.toLocaleDateString("en-US", dateFormat) ?? null,
+      nextAmount:
+        m.nextRenewalAmount && m.currency
+          ? new Intl.NumberFormat("en-US", { style: "currency", currency: m.currency }).format(
+              Number(m.nextRenewalAmount),
+            )
+          : m.nextRenewalAmount,
     })),
   };
 };
@@ -147,8 +171,9 @@ export default function Members() {
               <s-table-header listSlot="labeled">Plan</s-table-header>
               <s-table-header listSlot="labeled">Status</s-table-header>
               <s-table-header listSlot="labeled">Member since</s-table-header>
-              <s-table-header listSlot="labeled">Next retry</s-table-header>
-              <s-table-header listSlot="labeled">Renewal</s-table-header>
+              <s-table-header listSlot="labeled">Last paid</s-table-header>
+              <s-table-header listSlot="labeled">Next renewal</s-table-header>
+              <s-table-header listSlot="labeled">Charge</s-table-header>
             </s-table-header-row>
             <s-table-body>
               {members.map((m) => (
@@ -164,11 +189,25 @@ export default function Members() {
                       {STATUS_LABEL[m.status] ?? m.status}
                     </s-badge>
                     {m.failedAttempts > 0 && (
-                      <s-text color="subdued"> {m.failedAttempts} failed</s-text>
+                      <s-text color="subdued">
+                        {" "}
+                        {m.failedAttempts} failed
+                        {m.nextAttemptAt ? `, retry ${m.nextAttemptAt}` : ""}
+                      </s-text>
                     )}
                   </s-table-cell>
                   <s-table-cell>{m.since}</s-table-cell>
-                  <s-table-cell>{m.nextAttemptAt ?? "—"}</s-table-cell>
+                  <s-table-cell>{m.lastPaid ?? "—"}</s-table-cell>
+                  <s-table-cell>
+                    {m.nextRenewal ? (
+                      <s-stack direction="block" gap="none">
+                        <s-text>{m.nextRenewal}</s-text>
+                        {m.nextAmount && <s-text color="subdued">{m.nextAmount}</s-text>}
+                      </s-stack>
+                    ) : (
+                      "—"
+                    )}
+                  </s-table-cell>
                   <s-table-cell>
                     <fetcher.Form method="post">
                       <input type="hidden" name="intent" value="renew" />

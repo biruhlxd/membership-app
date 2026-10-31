@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Members page shows each member's last paid date and next renewal (date
+  and amount, the renewal price where it applies); a past-due member's
+  retry date shows with their status. The schedule is stored on Membership
+  and refreshed from Shopify after every purchase, contract change and
+  renewal result; older memberships get it on first view.
 - Fix: renewals charged the joining price. Shopify doesn't change a
   contract line's price by itself; before each charge the app now sets the
   line to the price the cycle owes (renewal price from cycle 1) through a

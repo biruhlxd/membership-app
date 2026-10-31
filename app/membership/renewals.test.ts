@@ -4,6 +4,7 @@ import {
   dueCycle,
   linePriceChanges,
   nextUnbilledCycle,
+  renewalAmount,
   normalizeErrorCode,
   onChargeFailed,
 } from "./renewals";
@@ -122,5 +123,28 @@ describe("nextUnbilledCycle", () => {
         cycle(3, "2029-10-31T12:00:00Z"),
       ])?.cycleIndex,
     ).toBe(3);
+  });
+});
+
+describe("renewalAmount", () => {
+  const line = {
+    id: "gid://shopify/SubscriptionLine/1",
+    quantity: 1,
+    currentPrice: { amount: "120.0", currencyCode: "USD" },
+    pricingPolicy: {
+      basePrice: { amount: "120.0" },
+      cycleDiscounts: [{ afterCycle: 1, computedPrice: { amount: "90.0" } }],
+    },
+  };
+
+  it("gives the renewal price for a renewal, even before the line is updated", () => {
+    expect(renewalAmount([line], 1)).toEqual({ amount: "90.00", currency: "USD" });
+  });
+
+  it("multiplies by quantity and adds the lines up", () => {
+    expect(renewalAmount([{ ...line, quantity: 2 }, line], 2)).toEqual({
+      amount: "270.00",
+      currency: "USD",
+    });
   });
 });

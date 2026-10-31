@@ -1,6 +1,8 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
 import { syncContract } from "../membership/contracts.server";
+import { refreshSchedule } from "../membership/renewals.server";
 
 // Every subscription_contracts/* topic lands here. The payload only names the
 // contract; syncContract reads its current state from Shopify.
@@ -17,6 +19,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     const result = await syncContract(admin, shop, contractId);
     console.log(`${topic} ${contractId} for ${shop}:`, JSON.stringify(result));
+    if (result.synced) {
+      const membership = await prisma.membership.findUnique({
+        where: { shop_contractId: { shop, contractId } },
+        select: { id: true },
+      });
+      if (membership) await refreshSchedule(admin, membership.id);
+    }
   } catch (error) {
     // A 500 makes Shopify retry the webhook later.
     console.error(`${topic} ${contractId} for ${shop} failed:`, error);
