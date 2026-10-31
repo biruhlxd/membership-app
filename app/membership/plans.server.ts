@@ -16,7 +16,7 @@ import {
   type ShopifySellingPlan,
 } from "./plan";
 
-type Admin = {
+export type Admin = {
   graphql: (
     query: string,
     options?: { variables?: Record<string, unknown> },

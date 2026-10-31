@@ -45,7 +45,21 @@ export function grantsAccess(status: MembershipStatus): boolean {
 }
 
 /**
- * Tags to add and remove so a customer carries exactly the tag of the plan
+ * The plan tags a customer should carry: one for each plan they hold access
+ * through. A customer can be a member of several plans at once.
+ */
+export function desiredTags(
+  memberships: { status: MembershipStatus; tag: string }[],
+): string[] {
+  const tags = new Map<string, string>();
+  for (const m of memberships) {
+    if (grantsAccess(m.status)) tags.set(m.tag.trim().toLowerCase(), m.tag.trim());
+  }
+  return [...tags.values()];
+}
+
+/**
+ * Tags to add and remove so a customer carries exactly the tags of the plans
  * they hold access through, and no other plan tag.
  *
  * Only tags in `planTags` (the tags this app manages) are ever removed; a
@@ -55,19 +69,23 @@ export function grantsAccess(status: MembershipStatus): boolean {
 export function tagChanges(
   currentTags: string[],
   planTags: string[],
-  desiredTag: string | null,
+  wantedTags: string[],
 ): { add: string[]; remove: string[] } {
   const lower = (t: string) => t.trim().toLowerCase();
   const managed = new Set(planTags.map(lower));
-  const want = desiredTag ? lower(desiredTag) : null;
-  if (want !== null && !managed.has(want)) {
-    throw new Error(`"${desiredTag}" is not one of the plan tags`);
+  const want = new Set(wantedTags.map(lower));
+  for (const tag of wantedTags) {
+    if (!managed.has(lower(tag))) {
+      throw new Error(`"${tag}" is not one of the plan tags`);
+    }
   }
 
   const remove = currentTags.filter(
-    (t) => managed.has(lower(t)) && lower(t) !== want,
+    (t) => managed.has(lower(t)) && !want.has(lower(t)),
   );
-  const has = currentTags.some((t) => lower(t) === want);
-  const add = desiredTag && !has ? [desiredTag.trim()] : [];
+  const have = new Set(currentTags.map(lower));
+  const add = wantedTags
+    .filter((t) => !have.has(lower(t)))
+    .map((t) => t.trim());
   return { add, remove };
 }

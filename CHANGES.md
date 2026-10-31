@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Memberships follow Shopify's subscription contracts: every
+  subscription_contracts/* webhook reads the contract from Shopify, creates
+  or updates the Membership, and gives the customer the tag of each plan
+  they hold access through (removing the app's other plan tags, never the
+  merchant's). A failure returns 500 so Shopify retries.
+- Moved the app to the "Biruh Tech" Partner organization (public
+  distribution); subscription scopes approved and added.
 - Edit a plan: name, tag, joining and renewal price, period (the product is
   fixed). Terms are read from Shopify; after saving, the app reads them back
   and checks Shopify holds exactly the two prices. Changes apply to new

@@ -25,6 +25,19 @@ api_version = "2026-10"
   uri = "/webhooks/app/scopes_update"
   topics = [ "app/scopes_update" ]
 
+  # Handled by: /app/routes/webhooks.subscription_contracts.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/subscription_contracts"
+  topics = [
+    "subscription_contracts/create",
+    "subscription_contracts/update",
+    "subscription_contracts/activate",
+    "subscription_contracts/pause",
+    "subscription_contracts/cancel",
+    "subscription_contracts/expire",
+    "subscription_contracts/fail",
+  ]
+
   # Mandatory compliance topics for public apps; needed before App Store review.
   # See: https://shopify.dev/docs/apps/build/privacy-law-compliance
   # [[webhooks.subscriptions]]
