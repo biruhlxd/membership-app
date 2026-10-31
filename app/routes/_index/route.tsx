@@ -21,9 +21,13 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
+        <h1 className={styles.heading}>
+          Memberships for associations and education
+        </h1>
         <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
+          Sell memberships on Shopify with joining and renewal prices, member
+          pricing and members-only products, and keep members in step with your
+          learning platform.
         </p>
         {showForm && (
           <Form className={styles.form} method="post" action="/auth/login">
@@ -39,16 +43,17 @@ export default function App() {
         )}
         <ul className={styles.list}>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Memberships that renew</strong>. A joining price and a
+            renewal price, automatic renewals, and retries when a card fails.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Member benefits</strong>. Member prices and members-only
+            products, given by the plan&apos;s customer tag and removed when a
+            membership ends.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>A member portal</strong>. Members see their plan and next
+            renewal, and can update their card or cancel, in their account.
           </li>
         </ul>
       </div>
