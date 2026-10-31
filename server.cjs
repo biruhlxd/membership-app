@@ -18,6 +18,10 @@ if (process.env.APP_LOG_FILE) {
   }
 }
 
+// The server finds its scripts (build/client) relative to the working
+// directory, and Passenger starts the app from the subdomain's web folder.
+process.chdir(__dirname);
+
 process.env.NODE_ENV = process.env.NODE_ENV ?? "production";
 process.argv = [process.argv[0], "react-router-serve", path.join(__dirname, "build/server/index.js")];
 
