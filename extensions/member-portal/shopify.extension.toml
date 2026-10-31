@@ -1,0 +1,18 @@
+# Member portal: a full page in the customer account where members see their
+# membership, next renewal and price, and can cancel. Merchants add it to the
+# customer account menu in the checkout and accounts editor.
+api_version = "2026-10"
+
+[[extensions]]
+name = "Membership"
+handle = "member-portal"
+type = "ui_extension"
+uid = "a99ba6b0-8385-621e-df5f-4af292ac0f7fe866e914"
+
+[[extensions.targeting]]
+module = "./src/MemberPortal.jsx"
+target = "customer-account.page.render"
+
+[extensions.capabilities]
+# Lets the page call the Customer Account API as the signed-in member.
+api_access = true

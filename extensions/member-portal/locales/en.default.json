@@ -1,0 +1,22 @@
+{
+  "heading": "Membership",
+  "loading": "Loading your membership",
+  "loadError": "Your membership couldn't be loaded. Refresh the page to try again.",
+  "none": "You don't have a membership yet.",
+  "membership": "Membership",
+  "nextRenewal": "Renews on {{date}} for {{price}}.",
+  "updateCard": "Update payment card",
+  "cancel": "Cancel membership",
+  "confirmHeading": "Cancel your membership?",
+  "confirmBody": "Your membership ends now and you lose member access and member prices. You won't be charged again.",
+  "confirmYes": "Yes, cancel",
+  "confirmNo": "Keep my membership",
+  "cancelled": "Your membership is cancelled.",
+  "status": {
+    "ACTIVE": "Active",
+    "PAUSED": "Paused",
+    "FAILED": "Payment failed",
+    "EXPIRED": "Ended",
+    "CANCELLED": "Cancelled"
+  }
+}

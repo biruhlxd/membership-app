@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Member portal (extensions/member-portal): a "Membership" page in the
+  customer account listing the member's memberships with status, next
+  renewal date and price, a link to update the payment card (Shopify's own
+  profile page), and cancel with a confirmation step. Uses the Customer
+  Account API (new scopes customer_read/write_own_subscription_contracts).
+  Cancelling ends access at once for now; see CLAUDE.md open decisions.
+- The root type check no longer includes extensions/ (each has its own
+  TypeScript setup; mixing their component types broke the admin's types).
 - Members-only products: a cart and checkout validation function
   (extensions/members-only) blocks checkout when the cart has a product
   tagged "members-only" and the buyer isn't a logged-in customer with a plan
