@@ -77,9 +77,10 @@ Production runs at `https://app.biruh.org` as a cPanel Node.js app (Node
   `SHOPIFY_APP_URL=https://app.biruh.org`, `SCOPES` (same list as
   `shopify.app.toml`), `DATABASE_URL=mysql://user:password@localhost:3306/db`,
   `RENEWALS_JOB_SECRET`, the SMTP settings below, and two the shared host
-  needs: `PRISMA_QUERY_ENGINE_LIBRARY` (the path of the generated
-  `libquery_engine-debian-openssl-1.1.x.so.node`; inside the web server
-  Prisma otherwise guesses OpenSSL 1.0) and `APP_LOG_FILE` (Passenger keeps
+  needs: `PRISMA_QUERY_ENGINE_LIBRARY` (set to
+  `~/biruh-membership-engine/libquery_engine-debian-openssl-1.1.x.so.node`,
+  a copy the deploy script refreshes, kept outside node_modules; inside the
+  web server Prisma otherwise guesses OpenSSL 1.0) and `APP_LOG_FILE` (Passenger keeps
   no normal output; `server.cjs` appends it there). On the server these live
   in `~/biruh-membership-secrets/env.json` and are applied with
   `cloudlinux-selector set --env-vars`.
