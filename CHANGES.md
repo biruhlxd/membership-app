@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Privacy webhooks (customers/data_request, customers/redact, shop/redact):
+  data requests are compiled and logged (to be emailed to the merchant
+  later); redacts delete the customer's or the shop's memberships, billing
+  attempts, plans and sessions. Tested with `shopify app webhook trigger`.
 - Members page shows each member's last paid date and next renewal (date
   and amount, the renewal price where it applies); a past-due member's
   retry date shows with their status. The schedule is stored on Membership
