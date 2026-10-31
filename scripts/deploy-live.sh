@@ -32,8 +32,9 @@ cp ~/$APP.old/stderr.log ~/$APP/ 2>/dev/null || true
 source ~/nodevenv/$APP/22/bin/activate
 cd ~/$APP
 # --ignore-scripts: install scripts (esbuild) are only for building, which
-# happens locally, and can hit the host's process limit (EAGAIN). Prisma's
-# client is generated explicitly below.
+# happens locally, and can hit the process limit of the host (EAGAIN). The
+# Prisma client is generated explicitly below. No apostrophes in this block:
+# it is one single-quoted string.
 npm ci --omit=dev --ignore-scripts --no-audit --no-fund 2>&1 | tail -1
 export DATABASE_URL="$(node -e "console.log(JSON.parse(require(\"fs\").readFileSync(process.env.HOME+\"/biruh-membership-secrets/env.json\",\"utf8\")).DATABASE_URL)")"
 npx prisma generate --schema prisma/mysql/schema.prisma 2>&1 | grep -i generated
