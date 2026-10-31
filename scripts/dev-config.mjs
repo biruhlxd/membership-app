@@ -23,6 +23,7 @@ set("name", JSON.stringify(DEV.name));
 set("application_url", JSON.stringify("https://example.com"));
 set("redirect_urls", '[ "https://example.com/api/auth" ]');
 set("automatically_update_urls_on_dev", "true");
+toml = toml.replace(/^# The live app keeps its address.*\r?\n/m, "");
 
 writeFileSync(
   "shopify.app.dev.toml",
