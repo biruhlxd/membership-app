@@ -1,0 +1,55 @@
+{%- assign current = product.selected_or_first_available_variant -%}
+{%- if current.selling_plan_allocations.size > 0 -%}
+  <fieldset class="membership-plans" data-membership-plans {{ block.shopify_attributes }}>
+    <legend class="membership-plans__legend">{{ 'plan_picker.heading' | t }}</legend>
+    {%- unless product.requires_selling_plan -%}
+      <label class="membership-plans__option">
+        <input type="radio" name="membership-plan-{{ block.id }}" value="">
+        <span class="membership-plans__name">{{ 'plan_picker.one_time' | t }}</span>
+        <span class="membership-plans__price">{{ current.price | money }}</span>
+      </label>
+    {%- endunless -%}
+    {%- for allocation in current.selling_plan_allocations -%}
+      {%- liquid
+        assign joining = allocation.price
+        if allocation.price_adjustments.size > 0
+          assign joining = allocation.price_adjustments[0].price
+        endif
+        assign joining_money = joining | money
+        assign renewal_money = ''
+        if allocation.price_adjustments.size > 1
+          assign renewal = allocation.price_adjustments[1].price
+          if renewal != joining
+            assign renewal_money = renewal | money
+          endif
+        endif
+      -%}
+      <label class="membership-plans__option">
+        <input
+          type="radio"
+          name="membership-plan-{{ block.id }}"
+          value="{{ allocation.selling_plan.id }}"
+          {% if forloop.first %}checked{% endif %}
+        >
+        <span class="membership-plans__name">{{ allocation.selling_plan.name }}</span>
+        <span class="membership-plans__price">
+          {{ 'plan_picker.joining' | t: price: joining_money }}
+          {%- if renewal_money != blank -%}
+            , {{ 'plan_picker.renewal' | t: price: renewal_money }}
+          {%- endif -%}
+        </span>
+      </label>
+    {%- endfor -%}
+  </fieldset>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Membership plans",
+  "target": "content",
+  "enabled_on": { "templates": ["product"] },
+  "javascript": "plan-picker.js",
+  "stylesheet": "plan-picker.css",
+  "settings": []
+}
+{% endschema %}

@@ -1,0 +1,8 @@
+{
+  "plan_picker": {
+    "heading": "Membership",
+    "one_time": "One-time purchase",
+    "joining": "{{ price }} to join",
+    "renewal": "then {{ price }} at each renewal"
+  }
+}

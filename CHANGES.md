@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Theme app extension "Membership plan picker": an app block for the product
+  page listing the product's plans with joining and renewal prices; the
+  chosen plan is sent with Add to cart and Buy it now. Themes without their
+  own plan options could not sell a plan-only product without it.
 - Memberships follow Shopify's subscription contracts: every
   subscription_contracts/* webhook reads the contract from Shopify, creates
   or updates the Membership, and gives the customer the tag of each plan
