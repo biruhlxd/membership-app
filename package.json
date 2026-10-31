@@ -3,10 +3,10 @@
   "private": true,
   "scripts": {
     "build": "react-router build",
-    "dev": "shopify app dev",
+    "dev": "npm run config:dev && shopify app dev --config dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
-    "deploy": "shopify app deploy",
+    "deploy": "shopify app deploy --config shopify.app.toml",
     "config:use": "shopify app config use",
     "env": "shopify app env",
     "start": "react-router-serve ./build/server/index.js",
@@ -21,7 +21,8 @@
     "test": "vitest run",
     "db:mysql:schema": "node scripts/mysql-schema.mjs",
     "db:mysql:check": "node scripts/mysql-schema.mjs && git diff --exit-code -- prisma/mysql/schema.prisma",
-    "setup:production": "prisma generate --schema prisma/mysql/schema.prisma && prisma migrate deploy --schema prisma/mysql/schema.prisma"
+    "setup:production": "prisma generate --schema prisma/mysql/schema.prisma && prisma migrate deploy --schema prisma/mysql/schema.prisma",
+    "config:dev": "node scripts/dev-config.mjs"
   },
   "type": "module",
   "engines": {

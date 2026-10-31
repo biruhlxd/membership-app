@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "890494ed1a86cfd5a6f60eb1a8ce42b7"
-application_url = "https://example.com"
+application_url = "https://app.biruh.org"
 embedded = true
 name = "Biruh Membership"
 
@@ -55,8 +55,9 @@ api_version = "2026-10"
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://app.biruh.org/auth/callback", "https://app.biruh.org/api/auth" ]
 
 [build]
 include_config_on_deploy = true
-automatically_update_urls_on_dev = true
+# The live app keeps its address; development uses the dev app (shopify.app.dev.toml).
+automatically_update_urls_on_dev = false
