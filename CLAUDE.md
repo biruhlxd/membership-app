@@ -113,6 +113,15 @@ Then: Organizations, Credentials, Moodle connector, App Store work
 (Shopify app billing for the $39/$149/$399 tiers, product-page purchase
 options extension, listing), per the plan doc.
 
+Live since 2026-10-31: https://app.biruh.org (live Shopify app "Biruh
+Membership", shopify.app.toml) on biruh.org shared hosting, MySQL, hourly
+cron at :07. Deploy with `bash scripts/deploy-live.sh`, plus `npm run deploy`
+when app config or extensions change. Development uses the separate app
+"Biruh Membership (dev)" (shopify.app.dev.toml, generated; `npm run dev`).
+Live app log: ~/biruh-membership-logs/app.log on the server. SSH is shared
+with Biruh's other sites (Moodle crons in the same crontab): change the
+crontab only with a backup and a line-count check, never by piping.
+
 Running the dev server: Claude can run `npm run dev` in the background and
 read its log. Before a Prisma migration, stop the dev server (its child
 processes lock Prisma's engine on Windows), migrate, then restart it.

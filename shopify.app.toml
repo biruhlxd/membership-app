@@ -58,6 +58,5 @@ api_version = "2026-10"
 redirect_urls = [ "https://app.biruh.org/auth/callback", "https://app.biruh.org/api/auth" ]
 
 [build]
-include_config_on_deploy = true
 # The live app keeps its address; development uses the dev app (shopify.app.dev.toml).
 automatically_update_urls_on_dev = false

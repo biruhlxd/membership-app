@@ -65,14 +65,24 @@ Production runs at `https://app.biruh.org` as a cPanel Node.js app (Node
     --script > prisma/mysql/migrations/<timestamp>_<name>/migration.sql
   ```
 
-- On the server: `npm ci --omit=dev`, `npm run setup:production` (generates
-  the MySQL client and applies migrations), `npm run build`, then restart
-  the Node.js app.
+- Deploy: commit, then `bash scripts/deploy-live.sh` (uploads the code and
+  build, installs, migrates MySQL, restarts). If `shopify.app.toml` or an
+  extension changed, also `npm run deploy` (releases the live Shopify app).
+- Two Shopify apps: `shopify.app.toml` is the live app (app.biruh.org);
+  `shopify.app.dev.toml` is "Biruh Membership (dev)", generated from it by
+  `npm run config:dev` and used by `npm run dev`. Edit only
+  `shopify.app.toml`.
 - Environment variables (set in cPanel's Node.js app, not in files):
   `NODE_ENV=production`, `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`,
   `SHOPIFY_APP_URL=https://app.biruh.org`, `SCOPES` (same list as
   `shopify.app.toml`), `DATABASE_URL=mysql://user:password@localhost:3306/db`,
-  `RENEWALS_JOB_SECRET`, and the SMTP settings below.
+  `RENEWALS_JOB_SECRET`, the SMTP settings below, and two the shared host
+  needs: `PRISMA_QUERY_ENGINE_LIBRARY` (the path of the generated
+  `libquery_engine-debian-openssl-1.1.x.so.node`; inside the web server
+  Prisma otherwise guesses OpenSSL 1.0) and `APP_LOG_FILE` (Passenger keeps
+  no normal output; `server.cjs` appends it there). On the server these live
+  in `~/biruh-membership-secrets/env.json` and are applied with
+  `cloudlinux-selector set --env-vars`.
 - Cron (hourly):
   `curl -fsS -X POST -H "Authorization: Bearer $RENEWALS_JOB_SECRET" https://app.biruh.org/jobs/renewals`
 

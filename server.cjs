@@ -1,7 +1,22 @@
 // Startup file for the cPanel Node.js app (Passenger). Passenger loads it
 // with require(), so it is CommonJS. It runs React Router's production server
 // (the same as `npm run start`), which listens on the PORT Passenger gives it.
+const fs = require("node:fs");
 const path = require("node:path");
+
+// Passenger on the shared host discards normal output, so webhook and
+// renewal messages would be lost. With APP_LOG_FILE set, everything the app
+// prints is also appended there.
+if (process.env.APP_LOG_FILE) {
+  const log = fs.createWriteStream(process.env.APP_LOG_FILE, { flags: "a" });
+  for (const stream of [process.stdout, process.stderr]) {
+    const write = stream.write.bind(stream);
+    stream.write = (chunk, ...rest) => {
+      log.write(chunk);
+      return write(chunk, ...rest);
+    };
+  }
+}
 
 process.env.NODE_ENV = process.env.NODE_ENV ?? "production";
 process.argv = [process.argv[0], "react-router-serve", path.join(__dirname, "build/server/index.js")];
