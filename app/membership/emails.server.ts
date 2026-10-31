@@ -39,6 +39,15 @@ let transport: nodemailer.Transporter | null | undefined;
 
 function smtp() {
   if (transport !== undefined) return transport;
+  // In development the settings live in .env; on the host they are set as
+  // the Node.js app's environment variables.
+  if (!process.env.SMTP_HOST && process.env.NODE_ENV !== "production") {
+    try {
+      process.loadEnvFile();
+    } catch {
+      // No .env: emails are logged only.
+    }
+  }
   const host = process.env.SMTP_HOST;
   if (!host || !process.env.EMAIL_FROM) {
     transport = null;
