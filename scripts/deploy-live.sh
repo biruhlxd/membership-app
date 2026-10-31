@@ -20,6 +20,7 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 npm run build
+node scripts/fix-build-paths.mjs
 PKG="$(mktemp -d)/app.tar"
 git archive --format=tar HEAD > "$PKG"
 tar --force-local -rf "$PKG" build
@@ -36,12 +37,21 @@ cd ~/$APP
 # Prisma client is generated explicitly below. No apostrophes in this block:
 # it is one single-quoted string.
 npm ci --omit=dev --ignore-scripts --no-audit --no-fund 2>&1 | tail -1
+# The engines download is the one install script the app needs.
+node node_modules/@prisma/engines/scripts/postinstall.js
 export DATABASE_URL="$(node -e "console.log(JSON.parse(require(\"fs\").readFileSync(process.env.HOME+\"/biruh-membership-secrets/env.json\",\"utf8\")).DATABASE_URL)")"
-npx prisma generate --schema prisma/mysql/schema.prisma 2>&1 | grep -i generated
-npx prisma migrate deploy --schema prisma/mysql/schema.prisma 2>&1 | grep -iE "applied|No pending|error"
-cloudlinux-selector restart --json --interpreter nodejs --app-root $APP | grep -o "\"result\": *\"[a-z]*\""
-sleep 3
+npx prisma generate --schema prisma/mysql/schema.prisma 2>&1 | tail -1
+npx prisma migrate deploy --schema prisma/mysql/schema.prisma 2>&1 | tail -1
+# PRISMA_QUERY_ENGINE_LIBRARY points at this copy, outside node_modules, so
+# a fresh install never leaves it pointing at a missing file.
+mkdir -p ~/biruh-membership-engine
+cp ~/nodevenv/$APP/22/lib/node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node ~/biruh-membership-engine/
+cloudlinux-selector restart --json --interpreter nodejs --app-root $APP | tail -c 80
+echo
+sleep 4
 curl -s -o /dev/null -w "https://app.biruh.org -> HTTP %{http_code}\n" https://app.biruh.org/
+ASSET=$(ls build/client/assets | grep "^entry.client" | head -1)
+curl -s -o /dev/null -w "scripts (/assets/$ASSET) -> HTTP %{http_code}\n" https://app.biruh.org/assets/$ASSET
 ' < "$PKG"
 
 rm -f "$PKG"
