@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Saving a plan makes its product a membership product: every variant priced
+  at the joining price (no fake "saving" on the storefront) and sold only
+  through a plan (no one-time purchase). If Shopify refuses, the plan is kept
+  and the page says what to change by hand.
 - Plan setup in the admin (Plans page): name, customer tag, membership
   product, joining price, renewal price and billing interval. Creates the
   Shopify selling plan group (joining price on the first order, renewal price
