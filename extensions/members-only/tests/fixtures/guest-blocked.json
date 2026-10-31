@@ -1,0 +1,29 @@
+{
+  "payload": {
+    "export": "cart-validations-generate-run",
+    "target": "cart.validations.generate.run",
+    "input": {
+      "cart": {
+        "buyerIdentity": null,
+        "lines": [
+          { "merchandise": { "__typename": "ProductVariant", "product": { "title": "Coach clinic", "membersOnly": true } } },
+          { "merchandise": { "__typename": "ProductVariant", "product": { "title": "T-shirt", "membersOnly": false } } }
+        ]
+      }
+    },
+    "output": {
+      "operations": [
+        {
+          "validationAdd": {
+            "errors": [
+              {
+                "message": "Coach clinic is for members only. Log in with your member account, or remove it from your cart.",
+                "target": "$.cart"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

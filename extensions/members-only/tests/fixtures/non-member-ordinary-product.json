@@ -1,0 +1,15 @@
+{
+  "payload": {
+    "export": "cart-validations-generate-run",
+    "target": "cart.validations.generate.run",
+    "input": {
+      "cart": {
+        "buyerIdentity": { "customer": { "hasAnyTag": false } },
+        "lines": [
+          { "merchandise": { "__typename": "ProductVariant", "product": { "title": "T-shirt", "membersOnly": false } } }
+        ]
+      }
+    },
+    "output": { "operations": [ { "validationAdd": { "errors": [] } } ] }
+  }
+}

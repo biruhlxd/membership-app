@@ -1,0 +1,20 @@
+query CartValidationsGenerateRunInput($memberTags: [String!]) {
+  cart {
+    buyerIdentity {
+      customer {
+        hasAnyTag(tags: $memberTags)
+      }
+    }
+    lines {
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          product {
+            title
+            membersOnly: hasAnyTag(tags: ["members-only"])
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+api_version = "2026-07"
+
+[[extensions]]
+name = "t:name"
+handle = "members-only"
+type = "function"
+uid = "064531db-ea44-7ea9-41d4-b466aa32d7ef7e33f9b3"
+description = "t:description"
+
+  [[extensions.targeting]]
+  target = "cart.validations.generate.run"
+  input_query = "src/cart_validations_generate_run.graphql"
+  # The app's plan tags, kept up to date by the app on the validation's metafield.
+  input_variables = { namespace = "$app:membership", key = "members-only" }
+  export = "cart-validations-generate-run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"

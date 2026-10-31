@@ -1,0 +1,15 @@
+{
+  "payload": {
+    "export": "cart-validations-generate-run",
+    "target": "cart.validations.generate.run",
+    "input": {
+      "cart": {
+        "buyerIdentity": { "customer": { "hasAnyTag": true } },
+        "lines": [
+          { "merchandise": { "__typename": "ProductVariant", "product": { "title": "Coach clinic", "membersOnly": true } } }
+        ]
+      }
+    },
+    "output": { "operations": [ { "validationAdd": { "errors": [] } } ] }
+  }
+}

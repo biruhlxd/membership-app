@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Members-only products: a cart and checkout validation function
+  (extensions/members-only) blocks checkout when the cart has a product
+  tagged "members-only" and the buyer isn't a logged-in customer with a plan
+  tag. The app creates the validation and keeps its list of plan tags (a
+  JSON metafield read as input variables) current on every plan save. New
+  page "Members-only products" to add and remove products. Function tested
+  with `npm test` in the extension (runs fixtures through Shopify's function
+  runner). New scopes: read/write_validations.
 - Member pricing: a plan can give its members a percent off everything else
   they buy. Saving the plan creates or updates a customer segment of the
   plan's tag and an automatic discount limited to it (never applied to the

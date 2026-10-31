@@ -1,0 +1,4 @@
+{
+  "name": "Members-only products",
+  "description": "Blocks checkout for products tagged members-only unless the customer has a membership plan tag."
+}

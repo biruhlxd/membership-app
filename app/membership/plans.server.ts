@@ -5,6 +5,7 @@
 // need read_products, write_products and write_purchase_options; the
 // protected subscription scopes are not required for plan setup.
 import prisma from "../db.server";
+import { syncMembersOnly } from "./membersOnly.server";
 import {
   memberDiscountInput,
   memberSegmentQuery,
@@ -211,6 +212,7 @@ export async function createPlan(
     plan.memberDiscount
       ? await syncMemberPricing(admin, created.id, plan.memberDiscount)
       : undefined,
+    await syncMembersOnlyTags(admin, shop),
   );
   return warning ? { ok: true, warning } : { ok: true };
 }
@@ -447,6 +449,7 @@ export async function updatePlan(
     plan.memberDiscount || row.discountId
       ? await syncMemberPricing(admin, row.id, plan.memberDiscount)
       : undefined,
+    await syncMembersOnlyTags(admin, shop),
   );
   return warning ? { ok: true, warning } : { ok: true };
 }
@@ -605,6 +608,17 @@ async function syncMemberPricing(
 
 const joinWarnings = (...warnings: (string | undefined)[]) =>
   warnings.filter(Boolean).join(" ") || undefined;
+
+/** Keep the members-only checkout rule's list of plan tags current. */
+async function syncMembersOnlyTags(admin: Admin, shop: string) {
+  try {
+    await syncMembersOnly(admin, shop);
+    return undefined;
+  } catch (error) {
+    console.error("members-only rule sync failed:", error);
+    return "The plan is saved, but the members-only checkout rule could not be updated.";
+  }
+}
 
 export function listPlans(shop: string) {
   return prisma.membershipPlan.findMany({

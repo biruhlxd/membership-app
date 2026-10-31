@@ -9,7 +9,7 @@ name = "Biruh Membership App"
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 # The subscription scopes (read_customer_payment_methods, read/write_own_subscription_contracts) are
 # protected: Shopify approved them for this app on 2026-10-31 (Partner Dashboard > API access requests).
-scopes = "read_customers,write_customers,read_products,write_products,read_purchase_options,write_purchase_options,read_customer_payment_methods,read_own_subscription_contracts,write_own_subscription_contracts,read_discounts,write_discounts"
+scopes = "read_customers,write_customers,read_products,write_products,read_purchase_options,write_purchase_options,read_customer_payment_methods,read_own_subscription_contracts,write_own_subscription_contracts,read_discounts,write_discounts,read_validations,write_validations"
 
 [webhooks]
 # Keep in step with apiVersion in app/shopify.server.ts.
