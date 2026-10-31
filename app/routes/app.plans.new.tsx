@@ -10,6 +10,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { parsePlanForm, type PlanFormErrors } from "../membership/plan";
 import { createPlan } from "../membership/plans.server";
+import { PlanFields } from "../components/PlanFields";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
@@ -89,80 +90,28 @@ export default function NewPlan() {
 
       <fetcher.Form method="post">
         <s-stack direction="block" gap="base">
-          <s-section heading="Plan">
-            <s-stack direction="block" gap="base">
-              <s-text-field
-                label="Plan name"
-                name="name"
-                placeholder="Coach membership"
-                details="Members see this name in the store and at checkout."
-                error={errors.name}
-              />
-              <s-text-field
-                label="Customer tag"
-                name="tag"
-                placeholder="member-coach"
-                details="Members get this tag while they have access, and lose it when it ends."
-                error={errors.tag}
-              />
-            </s-stack>
-          </s-section>
-
-          <s-section heading="Product">
-            <s-stack direction="block" gap="base">
-              <s-paragraph color="subdued">
-                The product members buy. Saving sets every variant to the
-                joining price and turns off one-time purchase, so it sells only
-                as a membership.
-              </s-paragraph>
-              <s-stack direction="inline" gap="base" alignItems="center">
-                <s-button onClick={pickProduct}>
-                  {product ? "Change product" : "Choose product"}
-                </s-button>
-                {product && <s-text type="strong">{product.title}</s-text>}
+          <PlanFields
+            errors={errors}
+            product={
+              <s-stack direction="block" gap="base">
+                <s-paragraph color="subdued">
+                  The product members buy. Saving sets every variant to the
+                  joining price and turns off one-time purchase, so it sells
+                  only as a membership.
+                </s-paragraph>
+                <s-stack direction="inline" gap="base" alignItems="center">
+                  <s-button onClick={pickProduct}>
+                    {product ? "Change product" : "Choose product"}
+                  </s-button>
+                  {product && <s-text type="strong">{product.title}</s-text>}
+                </s-stack>
+                {errors.productId && (
+                  <s-text tone="critical">{errors.productId}</s-text>
+                )}
+                <input type="hidden" name="productId" value={product?.id ?? ""} />
               </s-stack>
-              {errors.productId && (
-                <s-text tone="critical">{errors.productId}</s-text>
-              )}
-              <input type="hidden" name="productId" value={product?.id ?? ""} />
-            </s-stack>
-          </s-section>
-
-          <s-section heading="Pricing">
-            <s-stack direction="block" gap="base">
-              <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-                <s-money-field
-                  label="Joining price"
-                  name="joiningPrice"
-                  min={0}
-                  details="Charged on the first order."
-                  error={errors.joiningPrice}
-                />
-                <s-money-field
-                  label="Renewal price"
-                  name="renewalPrice"
-                  min={0}
-                  details="Charged at every renewal."
-                  error={errors.renewalPrice}
-                />
-              </s-grid>
-              <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-                <s-number-field
-                  label="Renews every"
-                  name="intervalCount"
-                  defaultValue="1"
-                  min={1}
-                  step={1}
-                  inputMode="numeric"
-                  error={errors.intervalCount}
-                />
-                <s-select label="Period" name="interval" error={errors.interval}>
-                  <s-option value="YEAR">Years</s-option>
-                  <s-option value="MONTH">Months</s-option>
-                </s-select>
-              </s-grid>
-            </s-stack>
-          </s-section>
+            }
+          />
 
           <s-stack direction="inline" justifyContent="end" gap="base">
             <s-button href="/app/plans">Cancel</s-button>

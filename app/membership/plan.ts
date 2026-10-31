@@ -87,36 +87,109 @@ const money = (amount: number) => amount.toFixed(2);
  * joining price first and the renewal price from the second order on.
  */
 export function sellingPlanGroupInput(plan: PlanInput) {
+  return {
+    ...groupFields(plan),
+    sellingPlansToCreate: [
+      { ...sellingPlanFields(plan), category: "SUBSCRIPTION" },
+    ],
+  };
+}
+
+/**
+ * The `SellingPlanGroupInput` that changes an existing plan in place. The
+ * pricing policies are sent whole; `planFromShopify` reads them back so the
+ * caller can check Shopify holds exactly these two prices.
+ */
+export function sellingPlanGroupUpdateInput(
+  plan: PlanInput,
+  sellingPlanId: string,
+) {
+  return {
+    ...groupFields(plan),
+    sellingPlansToUpdate: [{ id: sellingPlanId, ...sellingPlanFields(plan) }],
+  };
+}
+
+function groupFields(plan: PlanInput) {
+  return { name: plan.name, merchantCode: plan.name, options: ["Membership"] };
+}
+
+function sellingPlanFields(plan: PlanInput) {
   const cadence = { interval: plan.interval, intervalCount: plan.intervalCount };
   return {
     name: plan.name,
-    merchantCode: plan.name,
-    options: ["Membership"],
-    sellingPlansToCreate: [
+    options: [plan.name],
+    billingPolicy: { recurring: { ...cadence } },
+    deliveryPolicy: { recurring: { ...cadence } },
+    pricingPolicies: [
       {
-        name: plan.name,
-        options: [plan.name],
-        category: "SUBSCRIPTION",
-        billingPolicy: { recurring: { ...cadence } },
-        deliveryPolicy: { recurring: { ...cadence } },
-        pricingPolicies: [
-          {
-            fixed: {
-              adjustmentType: "PRICE",
-              adjustmentValue: { fixedValue: money(plan.joiningPrice) },
-            },
-          },
-          {
-            recurring: {
-              adjustmentType: "PRICE",
-              adjustmentValue: { fixedValue: money(plan.renewalPrice) },
-              afterCycle: 1,
-            },
-          },
-        ],
+        fixed: {
+          adjustmentType: "PRICE",
+          adjustmentValue: { fixedValue: money(plan.joiningPrice) },
+        },
+      },
+      {
+        recurring: {
+          adjustmentType: "PRICE",
+          adjustmentValue: { fixedValue: money(plan.renewalPrice) },
+          afterCycle: 1,
+        },
       },
     ],
   };
+}
+
+/** A selling plan as the Admin API returns it (only the fields read here). */
+export interface ShopifySellingPlan {
+  billingPolicy?: { interval?: string; intervalCount?: number } | null;
+  pricingPolicies?: {
+    afterCycle?: number;
+    adjustmentType?: string;
+    adjustmentValue?: { amount?: string } | null;
+  }[];
+}
+
+export interface PlanTerms {
+  joiningPrice: number;
+  renewalPrice: number;
+  interval: PlanInterval;
+  intervalCount: number;
+}
+
+/**
+ * The prices and period of a selling plan made by this app: one fixed PRICE
+ * policy (joining) and one recurring PRICE policy after cycle 1 (renewal).
+ * Returns null for any other shape, so the app never edits a plan it would
+ * misread.
+ */
+export function planFromShopify(plan: ShopifySellingPlan): PlanTerms | null {
+  const interval = plan.billingPolicy?.interval;
+  const intervalCount = plan.billingPolicy?.intervalCount;
+  if ((interval !== "MONTH" && interval !== "YEAR") || !intervalCount) {
+    return null;
+  }
+  const policies = plan.pricingPolicies ?? [];
+  if (policies.length !== 2) return null;
+  const fixed = policies.find((p) => p.afterCycle === undefined);
+  const recurring = policies.find((p) => p.afterCycle === 1);
+  if (fixed?.adjustmentType !== "PRICE" || recurring?.adjustmentType !== "PRICE") {
+    return null;
+  }
+  const joiningPrice = Number(fixed.adjustmentValue?.amount);
+  const renewalPrice = Number(recurring.adjustmentValue?.amount);
+  if (!Number.isFinite(joiningPrice) || !Number.isFinite(renewalPrice)) {
+    return null;
+  }
+  return { joiningPrice, renewalPrice, interval, intervalCount };
+}
+
+export function sameTerms(a: PlanTerms, b: PlanTerms): boolean {
+  return (
+    a.joiningPrice === b.joiningPrice &&
+    a.renewalPrice === b.renewalPrice &&
+    a.interval === b.interval &&
+    a.intervalCount === b.intervalCount
+  );
 }
 
 /**

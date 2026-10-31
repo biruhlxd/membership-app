@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { parsePlanForm, sellingPlanGroupInput, variantPriceInputs } from "./plan";
+import {
+  parsePlanForm,
+  planFromShopify,
+  sameTerms,
+  sellingPlanGroupInput,
+  sellingPlanGroupUpdateInput,
+  variantPriceInputs,
+} from "./plan";
 
 const form = {
   name: "Annual membership",
@@ -132,5 +139,96 @@ describe("variantPriceInputs", () => {
 
   it("gives nothing for a product with no variants", () => {
     expect(variantPriceInputs([], 120)).toEqual([]);
+  });
+});
+
+describe("sellingPlanGroupUpdateInput", () => {
+  const plan = {
+    name: "Coach membership",
+    tag: "member-coach",
+    productId: "gid://shopify/Product/1",
+    joiningPrice: 150,
+    renewalPrice: 100,
+    interval: "YEAR" as const,
+    intervalCount: 1,
+  };
+  const input = sellingPlanGroupUpdateInput(plan, "gid://shopify/SellingPlan/9");
+
+  it("updates the existing selling plan by id, creating none", () => {
+    expect(input.sellingPlansToUpdate).toHaveLength(1);
+    expect(input.sellingPlansToUpdate[0].id).toBe("gid://shopify/SellingPlan/9");
+    expect(input).not.toHaveProperty("sellingPlansToCreate");
+  });
+
+  it("sends both prices and the period", () => {
+    const sp = input.sellingPlansToUpdate[0];
+    expect(sp.pricingPolicies).toEqual([
+      { fixed: { adjustmentType: "PRICE", adjustmentValue: { fixedValue: "150.00" } } },
+      {
+        recurring: {
+          adjustmentType: "PRICE",
+          adjustmentValue: { fixedValue: "100.00" },
+          afterCycle: 1,
+        },
+      },
+    ]);
+    expect(sp.billingPolicy).toEqual({ recurring: { interval: "YEAR", intervalCount: 1 } });
+    expect(input.name).toBe("Coach membership");
+  });
+});
+
+describe("planFromShopify", () => {
+  const madeByApp = {
+    billingPolicy: { interval: "YEAR", intervalCount: 1 },
+    pricingPolicies: [
+      { adjustmentType: "PRICE", adjustmentValue: { amount: "120.0" } },
+      { afterCycle: 1, adjustmentType: "PRICE", adjustmentValue: { amount: "90.0" } },
+    ],
+  };
+
+  it("reads the joining price, renewal price and period", () => {
+    expect(planFromShopify(madeByApp)).toEqual({
+      joiningPrice: 120,
+      renewalPrice: 90,
+      interval: "YEAR",
+      intervalCount: 1,
+    });
+  });
+
+  it("refuses a plan with extra pricing policies", () => {
+    expect(
+      planFromShopify({
+        ...madeByApp,
+        pricingPolicies: [
+          ...madeByApp.pricingPolicies,
+          { afterCycle: 1, adjustmentType: "PRICE", adjustmentValue: { amount: "80.0" } },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("refuses percentage discounts and weekly plans it did not make", () => {
+    expect(
+      planFromShopify({
+        ...madeByApp,
+        pricingPolicies: [
+          { adjustmentType: "PERCENTAGE", adjustmentValue: {} },
+          madeByApp.pricingPolicies[1],
+        ],
+      }),
+    ).toBeNull();
+    expect(
+      planFromShopify({ ...madeByApp, billingPolicy: { interval: "WEEK", intervalCount: 1 } }),
+    ).toBeNull();
+  });
+});
+
+describe("sameTerms", () => {
+  const terms = { joiningPrice: 120, renewalPrice: 90, interval: "YEAR" as const, intervalCount: 1 };
+
+  it("matches identical terms and spots any difference", () => {
+    expect(sameTerms(terms, { ...terms })).toBe(true);
+    expect(sameTerms(terms, { ...terms, renewalPrice: 95 })).toBe(false);
+    expect(sameTerms(terms, { ...terms, interval: "MONTH" })).toBe(false);
   });
 });

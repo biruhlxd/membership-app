@@ -6,9 +6,14 @@
 // protected subscription scopes are not required for plan setup.
 import prisma from "../db.server";
 import {
+  planFromShopify,
+  sameTerms,
   sellingPlanGroupInput,
+  sellingPlanGroupUpdateInput,
   variantPriceInputs,
   type PlanInput,
+  type PlanTerms,
+  type ShopifySellingPlan,
 } from "./plan";
 
 type Admin = {
@@ -150,14 +155,8 @@ export async function createPlan(
   shop: string,
   plan: PlanInput,
 ): Promise<CreatePlanResult> {
-  // Tags must be unique per shop, ignoring case as Shopify does; check before
-  // anything is made in Shopify.
-  const existing = await prisma.membershipPlan.findMany({
-    where: { shop },
-    select: { tag: true },
-  });
-  const wanted = plan.tag.toLowerCase();
-  if (existing.some((p) => p.tag.toLowerCase() === wanted)) {
+  // Check before anything is made in Shopify.
+  if (await tagTaken(shop, plan.tag)) {
     return { ok: false, error: `Another plan already uses the tag "${plan.tag}".` };
   }
 
@@ -186,7 +185,14 @@ export async function createPlan(
 
   try {
     await prisma.membershipPlan.create({
-      data: { shop, name: plan.name, sellingPlanId, tag: plan.tag },
+      data: {
+        shop,
+        name: plan.name,
+        sellingPlanId,
+        sellingPlanGroupId: groupId,
+        productId: plan.productId,
+        tag: plan.tag,
+      },
     });
   } catch {
     // Undo the Shopify side so a plan never exists in Shopify without the app
@@ -198,6 +204,235 @@ export async function createPlan(
     return { ok: false, error: "The plan could not be saved. Try again." };
   }
   const warning = await prepareProduct(admin, plan.productId, plan.joiningPrice);
+  return warning ? { ok: true, warning } : { ok: true };
+}
+
+/** Tags are unique per shop, ignoring case as Shopify does. */
+async function tagTaken(shop: string, tag: string, exceptPlanId?: string) {
+  const plans = await prisma.membershipPlan.findMany({
+    where: { shop },
+    select: { id: true, tag: true },
+  });
+  const wanted = tag.toLowerCase();
+  return plans.some(
+    (p) => p.id !== exceptPlanId && p.tag.toLowerCase() === wanted,
+  );
+}
+
+const GROUP = `#graphql
+  query membershipPlanGroup($id: ID!) {
+    sellingPlanGroup(id: $id) {
+      id
+      products(first: 1) {
+        nodes {
+          id
+          title
+        }
+      }
+      sellingPlans(first: 1) {
+        nodes {
+          id
+          billingPolicy {
+            ... on SellingPlanRecurringBillingPolicy {
+              interval
+              intervalCount
+            }
+          }
+          pricingPolicies {
+            ... on SellingPlanFixedPricingPolicy {
+              adjustmentType
+              adjustmentValue {
+                ... on MoneyV2 {
+                  amount
+                }
+              }
+            }
+            ... on SellingPlanRecurringPricingPolicy {
+              afterCycle
+              adjustmentType
+              adjustmentValue {
+                ... on MoneyV2 {
+                  amount
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }`;
+
+const FIND_GROUPS = `#graphql
+  query membershipFindGroup {
+    sellingPlanGroups(first: 50) {
+      nodes {
+        id
+        sellingPlans(first: 5) {
+          nodes {
+            id
+          }
+        }
+      }
+    }
+  }`;
+
+const UPDATE_GROUP = `#graphql
+  mutation membershipSellingPlanGroupUpdate(
+    $id: ID!
+    $input: SellingPlanGroupInput!
+  ) {
+    sellingPlanGroupUpdate(id: $id, input: $input) {
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
+export interface EditablePlan {
+  id: string;
+  name: string;
+  tag: string;
+  memberCount: number;
+  product: { id: string; title: string } | null;
+  terms: PlanTerms | null;
+}
+
+/** The plan's row, finding and saving its Shopify ids if it predates them. */
+async function planWithIds(admin: Admin, shop: string, id: string) {
+  const plan = await prisma.membershipPlan.findFirst({ where: { id, shop } });
+  if (!plan || plan.sellingPlanGroupId) return plan;
+
+  const groups: { id: string; sellingPlans: { nodes: { id: string }[] } }[] =
+    (await (await admin.graphql(FIND_GROUPS)).json()).data?.sellingPlanGroups
+      ?.nodes ?? [];
+  const group = groups.find((g) =>
+    g.sellingPlans.nodes.some((sp) => sp.id === plan.sellingPlanId),
+  );
+  if (!group) return plan;
+  return prisma.membershipPlan.update({
+    where: { id: plan.id },
+    data: { sellingPlanGroupId: group.id },
+  });
+}
+
+async function readGroup(admin: Admin, groupId: string) {
+  const group = (
+    await (await admin.graphql(GROUP, { variables: { id: groupId } })).json()
+  ).data?.sellingPlanGroup;
+  const sellingPlan = group?.sellingPlans?.nodes?.[0];
+  return {
+    product: (group?.products?.nodes?.[0] ?? null) as
+      | { id: string; title: string }
+      | null,
+    terms: sellingPlan ? planFromShopify(sellingPlan as ShopifySellingPlan) : null,
+  };
+}
+
+/**
+ * A plan with its current terms read from Shopify (the source of truth).
+ * `terms` is null when Shopify's plan is missing or not in the shape this app
+ * makes; the page then refuses to edit it.
+ */
+export async function getPlan(
+  admin: Admin,
+  shop: string,
+  id: string,
+): Promise<EditablePlan | null> {
+  const plan = await planWithIds(admin, shop, id);
+  if (!plan) return null;
+  const memberCount = await prisma.membership.count({ where: { planId: plan.id } });
+  const shopify = plan.sellingPlanGroupId
+    ? await readGroup(admin, plan.sellingPlanGroupId)
+    : { product: null, terms: null };
+
+  if (shopify.product && !plan.productId) {
+    await prisma.membershipPlan.update({
+      where: { id: plan.id },
+      data: { productId: shopify.product.id },
+    });
+  }
+  return {
+    id: plan.id,
+    name: plan.name,
+    tag: plan.tag,
+    memberCount,
+    product: shopify.product,
+    terms: shopify.terms,
+  };
+}
+
+/**
+ * Change a plan's name, tag, prices and period. The product stays as it is.
+ * Changes apply to new members; Shopify keeps each existing member's
+ * contract at the terms they bought.
+ */
+export async function updatePlan(
+  admin: Admin,
+  shop: string,
+  id: string,
+  plan: PlanInput,
+): Promise<CreatePlanResult> {
+  const row = await planWithIds(admin, shop, id);
+  if (!row) return { ok: false, error: "This plan no longer exists." };
+  if (!row.sellingPlanGroupId) {
+    return { ok: false, error: "The plan was not found in Shopify." };
+  }
+
+  const tagChanged = row.tag.toLowerCase() !== plan.tag.toLowerCase();
+  if (tagChanged) {
+    const members = await prisma.membership.count({ where: { planId: row.id } });
+    if (members > 0) {
+      return {
+        ok: false,
+        error: "The tag can't change while the plan has members; they carry the current tag.",
+      };
+    }
+    if (await tagTaken(shop, plan.tag, row.id)) {
+      return { ok: false, error: `Another plan already uses the tag "${plan.tag}".` };
+    }
+  }
+
+  try {
+    const result = (
+      await (
+        await admin.graphql(UPDATE_GROUP, {
+          variables: {
+            id: row.sellingPlanGroupId,
+            input: sellingPlanGroupUpdateInput(plan, row.sellingPlanId),
+          },
+        })
+      ).json()
+    ).data?.sellingPlanGroupUpdate;
+    const errors: { message: string }[] = result?.userErrors ?? [];
+    if (!result || errors.length > 0) {
+      return {
+        ok: false,
+        error: errors.map((e) => e.message).join(" ") || "Shopify could not update the plan.",
+      };
+    }
+  } catch {
+    return { ok: false, error: "Shopify could not update the plan. Try again." };
+  }
+
+  // Check Shopify now holds exactly the terms sent: one joining price and one
+  // renewal price, not extra policies added beside the old ones.
+  const after = await readGroup(admin, row.sellingPlanGroupId);
+  if (!after.terms || !sameTerms(after.terms, plan)) {
+    return {
+      ok: false,
+      error: "Shopify saved different prices than expected. Check the plan on the product page before selling it.",
+    };
+  }
+
+  await prisma.membershipPlan.update({
+    where: { id: row.id },
+    data: { name: plan.name, tag: plan.tag },
+  });
+  const productId = row.productId ?? after.product?.id;
+  const warning = productId
+    ? await prepareProduct(admin, productId, plan.joiningPrice)
+    : undefined;
   return warning ? { ok: true, warning } : { ok: true };
 }
 

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Edit a plan: name, tag, joining and renewal price, period (the product is
+  fixed). Terms are read from Shopify; after saving, the app reads them back
+  and checks Shopify holds exactly the two prices. Changes apply to new
+  members only. The tag is locked while the plan has members. Plans now save
+  their Shopify group and product ids; older plans find them on first open.
 - Admin pages on Shopify's patterns: Home has a setup guide (create a plan,
   get subscription approval, first member) and member counts; Plans is a list
   with a table and an empty state; Create plan is its own page with money and

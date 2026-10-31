@@ -36,14 +36,17 @@ model Session {
 // A membership plan the merchant sells: one Shopify selling plan and the
 // customer tag that marks its members.
 model MembershipPlan {
-  id            String       @id @default(cuid())
-  shop          String
-  name          String
-  sellingPlanId String // gid://shopify/SellingPlan/...
-  tag           String
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  memberships   Membership[]
+  id                 String       @id @default(cuid())
+  shop               String
+  name               String
+  sellingPlanId      String // gid://shopify/SellingPlan/...
+  // Saved since 2026-10-31; older plans get them on first edit.
+  sellingPlanGroupId String? // gid://shopify/SellingPlanGroup/...
+  productId          String? // gid://shopify/Product/...
+  tag                String
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  memberships        Membership[]
 
   @@unique([shop, sellingPlanId])
   @@unique([shop, tag])

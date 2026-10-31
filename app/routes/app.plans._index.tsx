@@ -31,10 +31,16 @@ export default function Plans() {
   const [params, setParams] = useSearchParams();
 
   useEffect(() => {
-    if (params.get("created")) {
-      shopify.toast.show("Plan created");
+    const done = params.get("created")
+      ? "Plan created"
+      : params.get("updated")
+        ? "Plan updated"
+        : null;
+    if (done) {
+      shopify.toast.show(done);
       setParams((p) => {
         p.delete("created");
+        p.delete("updated");
         return p;
       });
     }
@@ -70,8 +76,12 @@ export default function Plans() {
             </s-table-header-row>
             <s-table-body>
               {plans.map((plan) => (
-                <s-table-row key={plan.id}>
-                  <s-table-cell>{plan.name}</s-table-cell>
+                <s-table-row key={plan.id} clickDelegate={`plan-${plan.id}`}>
+                  <s-table-cell>
+                    <s-link id={`plan-${plan.id}`} href={`/app/plans/${plan.id}`}>
+                      {plan.name}
+                    </s-link>
+                  </s-table-cell>
                   <s-table-cell>
                     <s-badge>{plan.tag}</s-badge>
                   </s-table-cell>
