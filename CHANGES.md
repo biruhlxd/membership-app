@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Member emails: a renewal reminder 7 days before each renewal (sent by the
+  renewal run), a payment-failed notice with the next retry date, and a
+  membership-ended notice when retries run out. Each is sent at most once
+  (EmailLog, unique per membership, kind and renewal or attempt). No email
+  provider is connected yet: emails are written to the server log and
+  recorded as LOGGED; connecting one means replacing `deliver` in
+  emails.server.ts. Privacy webhooks now include and delete email records.
 - Member portal (extensions/member-portal): a "Membership" page in the
   customer account listing the member's memberships with status, next
   renewal date and price, a link to update the payment card (Shopify's own

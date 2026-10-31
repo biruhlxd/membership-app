@@ -103,3 +103,18 @@ model BillingAttempt {
 
   @@unique([membershipId, cycleIndex, attempt])
 }
+
+// Every member email the app has sent (or logged, before an email provider is
+// connected). The unique key stops the same email going twice.
+model EmailLog {
+  id           String   @id @default(cuid())
+  membershipId String
+  kind         String // RENEWAL_REMINDER, PAYMENT_FAILED, LAPSED
+  key          String // see emailKey in app/membership/emails.ts
+  to           String
+  subject      String
+  delivery     String // LOGGED or SENT
+  createdAt    DateTime @default(now())
+
+  @@unique([membershipId, kind, key])
+}

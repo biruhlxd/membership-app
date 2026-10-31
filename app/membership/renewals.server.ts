@@ -11,6 +11,7 @@
 import prisma from "../db.server";
 import { billingAttemptKey } from "./billing";
 import { syncContract } from "./contracts.server";
+import { notifyLapsed, notifyPaymentFailed, sendDueReminders } from "./emails.server";
 import { DEFAULT_DUNNING } from "./dunning";
 import type { Admin } from "./plans.server";
 import {
@@ -409,6 +410,13 @@ export async function runRenewals(admin: Admin, shop: string, now = new Date()) 
       results.push({ membershipId: id, result: { charged: false, reason: "error" } });
     }
   }
+  // Reminders ride on the same run, so the scheduler that charges renewals
+  // also sends the week-before notices.
+  try {
+    await sendDueReminders(admin, shop, now);
+  } catch (error) {
+    console.error(`renewal reminders for ${shop} failed:`, error);
+  }
   return results;
 }
 
@@ -498,7 +506,8 @@ async function handleFailure(
       nextAttemptAt: outcome.action === "retry" ? outcome.nextAttemptAt : null,
     },
   });
-  // TODO(emails): tell the member (kind "member") or the merchant ("merchant").
+  // TODO(emails): also tell the merchant when the failure is theirs to fix
+  // (outcome.kind "merchant": gateway, inventory, customer record).
   console.log(
     `membership ${m.id}: charge failed (${errorCode ?? "no code"}, ${outcome.kind}); ${outcome.action}`,
   );
@@ -509,5 +518,16 @@ async function handleFailure(
     await gql(admin, FAIL_CONTRACT, { id: m.contractId });
   }
   await syncContract(admin, shop, m.contractId);
+
+  // Emails must never break billing.
+  try {
+    if (outcome.action === "retry") {
+      await notifyPaymentFailed(admin, m.id, outcome.failedAttempts, outcome.nextAttemptAt);
+    } else {
+      await notifyLapsed(admin, m.id);
+    }
+  } catch (error) {
+    console.error(`membership ${m.id}: failure email not sent:`, error);
+  }
   return outcome;
 }
