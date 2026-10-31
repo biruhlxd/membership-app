@@ -21,11 +21,11 @@ import {
 } from "./renewals";
 
 const DUE_CYCLES = `#graphql
-  query membershipDueCycles($contractId: ID!, $start: DateTime!, $end: DateTime!) {
+  query membershipDueCycles($contractId: ID!, $startIndex: Int!, $endIndex: Int!) {
     subscriptionBillingCycles(
       first: 10
       contractId: $contractId
-      billingCyclesDateRangeSelector: { startDate: $start, endDate: $end }
+      billingCyclesIndexRangeSelector: { startIndex: $startIndex, endIndex: $endIndex }
     ) {
       nodes {
         cycleIndex
@@ -99,9 +99,9 @@ const MOVE_CYCLE = `#graphql
     }
   }`;
 
-// Look back this far for cycles that were due but never charged (the job
-// was down, the app was paused).
-const LOOK_BACK_DAYS = 60;
+// How many cycles to read after the last paid one. Missed cycles (the job
+// was down) are inside this window and are charged oldest first.
+const CYCLES_AHEAD = 10;
 
 async function gql<T>(
   admin: Admin,
@@ -144,13 +144,21 @@ export async function renewMembership(
   });
   if (pending > 0) return { charged: false, reason: "a charge is still in progress" };
 
-  const start = new Date(now.getTime() - LOOK_BACK_DAYS * 24 * 60 * 60 * 1000);
+  // Search by cycle number, not date: a date range that starts before the
+  // contract existed is refused by Shopify. Start after the last cycle this
+  // app was paid for; dueCycle then keeps the unbilled ones that are due.
+  const lastPaid = await prisma.billingAttempt.findFirst({
+    where: { membershipId: m.id, state: "SUCCEEDED" },
+    orderBy: { cycleIndex: "desc" },
+    select: { cycleIndex: true },
+  });
+  const startIndex = (lastPaid?.cycleIndex ?? 0) + 1;
   const { subscriptionBillingCycles } = await gql<{
     subscriptionBillingCycles: { nodes: BillingCycle[] };
   }>(admin, DUE_CYCLES, {
     contractId: m.contractId,
-    start: start.toISOString(),
-    end: now.toISOString(),
+    startIndex,
+    endIndex: startIndex + CYCLES_AHEAD - 1,
   });
   const cycle = dueCycle(subscriptionBillingCycles?.nodes ?? [], now);
   if (!cycle) return { charged: false, reason: "nothing due" };

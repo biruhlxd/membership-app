@@ -72,7 +72,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const id = String(data.get("membershipId") ?? "");
     const owned = await prisma.membership.findFirst({ where: { id, shop: session.shop } });
     if (!owned) return { message: "Member not found.", tone: "critical" as const };
-    const result = await renewNow(admin, id);
+    let result;
+    try {
+      result = await renewNow(admin, id);
+    } catch (error) {
+      console.error(`Renew now for membership ${id} failed:`, error);
+      return {
+        message: `Shopify refused: ${error instanceof Error ? error.message : "unknown error"}`,
+        tone: "critical" as const,
+      };
+    }
     return result.charged
       ? { message: "Renewal charge sent. The result appears here in a moment.", tone: "success" as const }
       : { message: `No charge: ${result.reason}.`, tone: "warning" as const };
