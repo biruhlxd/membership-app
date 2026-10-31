@@ -16,6 +16,8 @@ export interface PlanForm {
   renewalPrice: string;
   interval: string;
   intervalCount: string;
+  /** Percent off for members; empty for none. */
+  memberDiscount?: string;
 }
 
 export interface PlanInput {
@@ -26,6 +28,8 @@ export interface PlanInput {
   renewalPrice: number;
   interval: PlanInterval;
   intervalCount: number;
+  /** Percent off everything members buy (1-100), or null for none. */
+  memberDiscount?: number | null;
 }
 
 export type PlanFormErrors = Partial<Record<keyof PlanForm, string>>;
@@ -64,6 +68,14 @@ export function parsePlanForm(form: PlanForm): PlanFormResult {
   if (!Number.isInteger(intervalCount) || intervalCount < 1) {
     errors.intervalCount = "Enter a whole number, 1 or more.";
   }
+  const discountText = (form.memberDiscount ?? "").trim();
+  const memberDiscount = discountText === "" ? null : Number(discountText);
+  if (
+    memberDiscount !== null &&
+    (!Number.isInteger(memberDiscount) || memberDiscount < 1 || memberDiscount > 100)
+  ) {
+    errors.memberDiscount = "Enter a whole percent from 1 to 100, or leave it empty.";
+  }
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
   return {
@@ -76,6 +88,7 @@ export function parsePlanForm(form: PlanForm): PlanFormResult {
       renewalPrice: Number(renewalPrice),
       interval: form.interval as PlanInterval,
       intervalCount,
+      memberDiscount,
     },
   };
 }
@@ -206,4 +219,41 @@ export function variantPriceInputs(variantIds: string[], joiningPrice: number) {
     // fulfilled.
     inventoryItem: { requiresShipping: false },
   }));
+}
+
+/**
+ * The customer segment query for "has this plan's tag". Membership is what
+ * puts the tag on a customer, so the segment follows membership by itself.
+ */
+export function memberSegmentQuery(tag: string): string {
+  const escaped = tag.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  return `customer_tags CONTAINS '${escaped}'`;
+}
+
+/**
+ * The automatic discount giving a plan's members `percent` off. It applies to
+ * one-time purchases only, so the membership itself is never discounted.
+ */
+export function memberDiscountInput(
+  planName: string,
+  percent: number,
+  segmentId: string,
+  startsAt: Date,
+) {
+  return {
+    title: `${planName}: member price (${percent}% off)`,
+    startsAt: startsAt.toISOString(),
+    context: { customerSegments: { add: [segmentId] } },
+    customerGets: {
+      value: { percentage: percent / 100 },
+      items: { all: true },
+      appliesOnOneTimePurchase: true,
+      appliesOnSubscription: false,
+    },
+    combinesWith: {
+      orderDiscounts: false,
+      productDiscounts: false,
+      shippingDiscounts: true,
+    },
+  };
 }

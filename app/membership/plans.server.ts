@@ -6,6 +6,8 @@
 // protected subscription scopes are not required for plan setup.
 import prisma from "../db.server";
 import {
+  memberDiscountInput,
+  memberSegmentQuery,
   planFromShopify,
   sameTerms,
   sellingPlanGroupInput,
@@ -183,8 +185,9 @@ export async function createPlan(
     };
   }
 
+  let created;
   try {
-    await prisma.membershipPlan.create({
+    created = await prisma.membershipPlan.create({
       data: {
         shop,
         name: plan.name,
@@ -203,7 +206,12 @@ export async function createPlan(
       .catch(() => undefined);
     return { ok: false, error: "The plan could not be saved. Try again." };
   }
-  const warning = await prepareProduct(admin, plan.productId, plan.joiningPrice);
+  const warning = joinWarnings(
+    await prepareProduct(admin, plan.productId, plan.joiningPrice),
+    plan.memberDiscount
+      ? await syncMemberPricing(admin, created.id, plan.memberDiscount)
+      : undefined,
+  );
   return warning ? { ok: true, warning } : { ok: true };
 }
 
@@ -296,6 +304,7 @@ export interface EditablePlan {
   memberCount: number;
   product: { id: string; title: string } | null;
   terms: PlanTerms | null;
+  memberDiscount: number | null;
 }
 
 /** The plan's row, finding and saving its Shopify ids if it predates them. */
@@ -359,6 +368,7 @@ export async function getPlan(
     memberCount,
     product: shopify.product,
     terms: shopify.terms,
+    memberDiscount: plan.memberDiscount,
   };
 }
 
@@ -430,11 +440,171 @@ export async function updatePlan(
     data: { name: plan.name, tag: plan.tag },
   });
   const productId = row.productId ?? after.product?.id;
-  const warning = productId
-    ? await prepareProduct(admin, productId, plan.joiningPrice)
-    : undefined;
+  const warning = joinWarnings(
+    productId ? await prepareProduct(admin, productId, plan.joiningPrice) : undefined,
+    // Re-synced on every save: a renamed plan or changed tag updates the
+    // segment and the discount title too.
+    plan.memberDiscount || row.discountId
+      ? await syncMemberPricing(admin, row.id, plan.memberDiscount)
+      : undefined,
+  );
   return warning ? { ok: true, warning } : { ok: true };
 }
+
+const SEGMENT_CREATE = `#graphql
+  mutation membershipSegmentCreate($name: String!, $query: String!) {
+    segmentCreate(name: $name, query: $query) {
+      segment {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
+const SEGMENT_UPDATE = `#graphql
+  mutation membershipSegmentUpdate($id: ID!, $name: String, $query: String) {
+    segmentUpdate(id: $id, name: $name, query: $query) {
+      segment {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
+const DISCOUNT_CREATE = `#graphql
+  mutation membershipDiscountCreate($discount: DiscountAutomaticBasicInput!) {
+    discountAutomaticBasicCreate(automaticBasicDiscount: $discount) {
+      automaticDiscountNode {
+        id
+      }
+      userErrors {
+        field
+        code
+        message
+      }
+    }
+  }`;
+
+const DISCOUNT_UPDATE = `#graphql
+  mutation membershipDiscountUpdate(
+    $id: ID!
+    $discount: DiscountAutomaticBasicInput!
+  ) {
+    discountAutomaticBasicUpdate(id: $id, automaticBasicDiscount: $discount) {
+      automaticDiscountNode {
+        id
+      }
+      userErrors {
+        field
+        code
+        message
+      }
+    }
+  }`;
+
+const DISCOUNT_DELETE = `#graphql
+  mutation membershipDiscountDelete($id: ID!) {
+    discountAutomaticDelete(id: $id) {
+      deletedAutomaticDiscountId
+      userErrors {
+        field
+        code
+        message
+      }
+    }
+  }`;
+
+async function mutate(
+  admin: Admin,
+  query: string,
+  field: string,
+  variables: Record<string, unknown>,
+) {
+  const result = (await (await admin.graphql(query, { variables })).json()).data?.[
+    field
+  ];
+  const errors: { message: string }[] = result?.userErrors ?? [];
+  if (!result || errors.length > 0) {
+    throw new Error(errors.map((e) => e.message).join(" ") || `${field} failed`);
+  }
+  return result;
+}
+
+/**
+ * Give the plan's members `percent` off, or remove the member price when
+ * null. Members are the customers in a segment of the plan's tag, so the
+ * discount follows membership as the app adds and removes tags. Returns a
+ * warning when Shopify refuses; the plan itself is already saved.
+ */
+async function syncMemberPricing(
+  admin: Admin,
+  planId: string,
+  percent: number | null | undefined,
+): Promise<string | undefined> {
+  const plan = await prisma.membershipPlan.findUniqueOrThrow({ where: { id: planId } });
+  try {
+    if (!percent) {
+      if (plan.discountId) {
+        await mutate(admin, DISCOUNT_DELETE, "discountAutomaticDelete", {
+          id: plan.discountId,
+        });
+      }
+      await prisma.membershipPlan.update({
+        where: { id: plan.id },
+        data: { memberDiscount: null, discountId: null },
+      });
+      return undefined;
+    }
+
+    const segment = {
+      name: `${plan.name} members`,
+      query: memberSegmentQuery(plan.tag),
+    };
+    let segmentId = plan.segmentId;
+    if (segmentId) {
+      await mutate(admin, SEGMENT_UPDATE, "segmentUpdate", { id: segmentId, ...segment });
+    } else {
+      segmentId = (await mutate(admin, SEGMENT_CREATE, "segmentCreate", segment)).segment
+        .id as string;
+      await prisma.membershipPlan.update({ where: { id: plan.id }, data: { segmentId } });
+    }
+
+    const discount = memberDiscountInput(plan.name, percent, segmentId, new Date());
+    let discountId = plan.discountId;
+    if (discountId) {
+      // Keep the original start date; only the terms change.
+      const changes: Partial<typeof discount> = { ...discount };
+      delete changes.startsAt;
+      await mutate(admin, DISCOUNT_UPDATE, "discountAutomaticBasicUpdate", {
+        id: discountId,
+        discount: changes,
+      });
+    } else {
+      discountId = (
+        await mutate(admin, DISCOUNT_CREATE, "discountAutomaticBasicCreate", { discount })
+      ).automaticDiscountNode.id as string;
+    }
+    await prisma.membershipPlan.update({
+      where: { id: plan.id },
+      data: { memberDiscount: percent, discountId },
+    });
+    return undefined;
+  } catch (error) {
+    console.error(`member pricing for plan ${plan.id} failed:`, error);
+    return `The plan is saved, but the member price could not be set: ${
+      error instanceof Error ? error.message : "Shopify refused it"
+    }.`;
+  }
+}
+
+const joinWarnings = (...warnings: (string | undefined)[]) =>
+  warnings.filter(Boolean).join(" ") || undefined;
 
 export function listPlans(shop: string) {
   return prisma.membershipPlan.findMany({

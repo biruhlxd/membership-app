@@ -5,6 +5,8 @@ import {
   sameTerms,
   sellingPlanGroupInput,
   sellingPlanGroupUpdateInput,
+  memberDiscountInput,
+  memberSegmentQuery,
   variantPriceInputs,
 } from "./plan";
 
@@ -31,6 +33,7 @@ describe("parsePlanForm", () => {
         renewalPrice: 90,
         interval: "YEAR",
         intervalCount: 1,
+        memberDiscount: null,
       },
     });
   });
@@ -230,5 +233,53 @@ describe("sameTerms", () => {
     expect(sameTerms(terms, { ...terms })).toBe(true);
     expect(sameTerms(terms, { ...terms, renewalPrice: 95 })).toBe(false);
     expect(sameTerms(terms, { ...terms, interval: "MONTH" })).toBe(false);
+  });
+});
+
+describe("member discount", () => {
+  it("is optional", () => {
+    const result = parsePlanForm({ ...form, memberDiscount: "" });
+    expect(result.ok && result.plan.memberDiscount).toBeNull();
+  });
+
+  it("takes a whole percent from 1 to 100", () => {
+    const result = parsePlanForm({ ...form, memberDiscount: "15" });
+    expect(result.ok && result.plan.memberDiscount).toBe(15);
+  });
+
+  it("refuses 0, more than 100 and fractions", () => {
+    for (const bad of ["0", "101", "12.5", "ten"]) {
+      const result = parsePlanForm({ ...form, memberDiscount: bad });
+      expect(result.ok).toBe(false);
+    }
+  });
+});
+
+describe("memberSegmentQuery", () => {
+  it("selects customers with the plan's tag", () => {
+    expect(memberSegmentQuery("member-coach")).toBe("customer_tags CONTAINS 'member-coach'");
+  });
+
+  it("escapes quotes in a tag", () => {
+    expect(memberSegmentQuery("coach's")).toBe("customer_tags CONTAINS 'coach\\'s'");
+  });
+});
+
+describe("memberDiscountInput", () => {
+  const input = memberDiscountInput(
+    "Coach membership",
+    10,
+    "gid://shopify/Segment/1",
+    new Date("2026-10-31T00:00:00Z"),
+  );
+
+  it("gives the segment the percent off as a fraction", () => {
+    expect(input.customerGets.value).toEqual({ percentage: 0.1 });
+    expect(input.context).toEqual({ customerSegments: { add: ["gid://shopify/Segment/1"] } });
+  });
+
+  it("never discounts the membership itself", () => {
+    expect(input.customerGets.appliesOnSubscription).toBe(false);
+    expect(input.customerGets.appliesOnOneTimePurchase).toBe(true);
   });
 });

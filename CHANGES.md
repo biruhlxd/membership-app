@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Member pricing: a plan can give its members a percent off everything else
+  they buy. Saving the plan creates or updates a customer segment of the
+  plan's tag and an automatic discount limited to it (never applied to the
+  membership itself), so the discount follows membership as tags change.
+  Clearing the field removes the discount. New scopes: read/write_discounts.
 - Privacy webhooks (customers/data_request, customers/redact, shop/redact):
   data requests are compiled and logged (to be emailed to the merchant
   later); redacts delete the customer's or the shop's memberships, billing

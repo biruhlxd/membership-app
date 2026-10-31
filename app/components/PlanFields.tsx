@@ -8,6 +8,7 @@ export interface PlanDefaults {
   renewalPrice: string;
   interval: "MONTH" | "YEAR";
   intervalCount: string;
+  memberDiscount: string;
 }
 
 /**
@@ -99,6 +100,20 @@ export function PlanFields({
             </s-select>
           </s-grid>
         </s-stack>
+      </s-section>
+
+      <s-section heading="Member pricing">
+        <s-number-field
+          label="Member discount (%)"
+          name="memberDiscount"
+          defaultValue={defaults?.memberDiscount ?? ""}
+          min={1}
+          max={100}
+          step={1}
+          inputMode="numeric"
+          details="Members get this much off everything else they buy, while they have the plan's tag. Leave empty for no member price."
+          error={errors.memberDiscount}
+        />
       </s-section>
     </s-stack>
   );

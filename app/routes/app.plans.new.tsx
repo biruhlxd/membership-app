@@ -36,6 +36,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     renewalPrice: field("renewalPrice"),
     interval: field("interval"),
     intervalCount: field("intervalCount"),
+    memberDiscount: field("memberDiscount"),
   });
   if (!parsed.ok) {
     return { errors: parsed.errors, error: null, warning: null } satisfies ActionResult;

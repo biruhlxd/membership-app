@@ -41,6 +41,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     renewalPrice: field("renewalPrice"),
     interval: field("interval"),
     intervalCount: field("intervalCount"),
+    memberDiscount: field("memberDiscount"),
   });
   if (!parsed.ok) {
     return { errors: parsed.errors, error: null, warning: null } satisfies ActionResult;
@@ -103,6 +104,7 @@ export default function EditPlan() {
                 renewalPrice: terms.renewalPrice.toFixed(2),
                 interval: terms.interval,
                 intervalCount: String(terms.intervalCount),
+                memberDiscount: plan.memberDiscount ? String(plan.memberDiscount) : "",
               }}
               tagLocked={
                 plan.memberCount > 0
