@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Renewals: each due, unbilled Shopify billing cycle is charged with
+  subscriptionBillingAttemptCreate and the attempt's idempotency key, saved
+  first as a PENDING BillingAttempt. Results come by webhook
+  (subscription_billing_attempts/success, failure, challenged); failures
+  retry after 1, 3 and 7 days, then the contract is marked failed in Shopify
+  and the membership lapses (tag removed). A PENDING attempt with no result
+  after a day becomes UNKNOWN. Members page lists members with "Renew now"
+  (moves the next renewal to today and charges it) and "Run due renewals".
+  POST /jobs/renewals runs all shops for a scheduler when
+  RENEWALS_JOB_SECRET is set.
 - Theme app extension "Membership plan picker": an app block for the product
   page listing the product's plans with joining and renewal prices; the
   chosen plan is sent with Add to cart and Buy it now. Themes without their

@@ -84,12 +84,14 @@ community stay in the organization's learning platform.
 
 1. Done: plan setup, plan list and plan editing in the admin; Home setup
    guide.
-2. Done: `subscription_contracts/*` webhooks sync `Membership` and customer
-   tags (`app/membership/contracts.server.ts`). Not yet tested on a store.
-   To do: billing-attempt success, failure and action-required webhooks
-   update `BillingAttempt` and run `afterFailure` (dunning).
-3. Renewal job: find due billing cycles, create billing attempts with the
-   idempotency key, schedule retries from `nextAttemptAt`.
+2. Done and tested on the Biruh Tech dev store: `subscription_contracts/*`
+   webhooks sync `Membership` and customer tags
+   (`app/membership/contracts.server.ts`).
+3. Done, not yet tested on a store: renewals
+   (`app/membership/renewals.server.ts`), billing-attempt webhooks, Members
+   page with "Renew now", `/jobs/renewals` for a scheduler. Still to do:
+   renewal reminder and failed-payment emails (see TODO(emails)); hosting a
+   scheduler that calls `/jobs/renewals`.
 4. Mandatory privacy webhooks (customers/data_request, customers/redact,
    shop/redact) before App Store review.
 5. Member portal (customer account extension): plan, renew, update card,

@@ -38,6 +38,15 @@ api_version = "2026-10"
     "subscription_contracts/fail",
   ]
 
+  # Handled by: /app/routes/webhooks.subscription_billing_attempts.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/subscription_billing_attempts"
+  topics = [
+    "subscription_billing_attempts/success",
+    "subscription_billing_attempts/failure",
+    "subscription_billing_attempts/challenged",
+  ]
+
   # Mandatory compliance topics for public apps; needed before App Store review.
   # See: https://shopify.dev/docs/apps/build/privacy-law-compliance
   # [[webhooks.subscriptions]]

@@ -85,7 +85,7 @@ model BillingAttempt {
   attempt          Int
   idempotencyKey   String     @unique
   shopifyAttemptId String?    @unique // gid://shopify/SubscriptionBillingAttempt/...
-  state            String // PENDING, SUCCEEDED, FAILED, ACTION_REQUIRED
+  state            String // PENDING, SUCCEEDED, FAILED, ACTION_REQUIRED, UNKNOWN
   errorCode        String?
   orderId          String? // gid://shopify/Order/... when it succeeds
   createdAt        DateTime   @default(now())

@@ -40,6 +40,13 @@ npm run lint
 npm run build
 ```
 
+## Renewals
+
+Renewals are charged by `POST /jobs/renewals`, which a scheduler should call
+about once an hour with `Authorization: Bearer <RENEWALS_JOB_SECRET>`. The
+route answers 404 until `RENEWALS_JOB_SECRET` is set. In development, use
+**Members → Run due renewals** or **Renew now** instead.
+
 ## Access scopes
 
 Subscriptions also need `read_customer_payment_methods`,
