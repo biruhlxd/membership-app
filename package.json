@@ -18,7 +18,10 @@
     "graphql-codegen": "graphql-codegen",
     "vite": "vite",
     "typecheck": "react-router typegen && tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:mysql:schema": "node scripts/mysql-schema.mjs",
+    "db:mysql:check": "node scripts/mysql-schema.mjs && git diff --exit-code -- prisma/mysql/schema.prisma",
+    "setup:production": "prisma generate --schema prisma/mysql/schema.prisma && prisma migrate deploy --schema prisma/mysql/schema.prisma"
   },
   "type": "module",
   "engines": {

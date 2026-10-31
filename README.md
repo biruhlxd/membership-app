@@ -48,6 +48,34 @@ about once an hour with `Authorization: Bearer <RENEWALS_JOB_SECRET>`. The
 route answers 404 until `RENEWALS_JOB_SECRET` is set. In development, use
 **Members → Run due renewals** or **Renew now** instead.
 
+## Hosting
+
+Production runs at `https://app.biruh.org` as a cPanel Node.js app (Node
+22+) with MySQL, on Biruh's shared hosting. Development keeps SQLite.
+
+- `prisma/schema.prisma` is the one schema to edit (SQLite).
+  `npm run db:mysql:schema` writes the MySQL copy, `prisma/mysql/schema.prisma`.
+  After a schema change, also add a MySQL migration:
+
+  ```sh
+  npm run db:mysql:schema
+  npx prisma migrate diff \
+    --from-schema-datamodel <previous prisma/mysql/schema.prisma from git> \
+    --to-schema-datamodel prisma/mysql/schema.prisma \
+    --script > prisma/mysql/migrations/<timestamp>_<name>/migration.sql
+  ```
+
+- On the server: `npm ci --omit=dev`, `npm run setup:production` (generates
+  the MySQL client and applies migrations), `npm run build`, then restart
+  the Node.js app.
+- Environment variables (set in cPanel's Node.js app, not in files):
+  `NODE_ENV=production`, `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`,
+  `SHOPIFY_APP_URL=https://app.biruh.org`, `SCOPES` (same list as
+  `shopify.app.toml`), `DATABASE_URL=mysql://user:password@localhost:3306/db`,
+  `RENEWALS_JOB_SECRET`, and the SMTP settings below.
+- Cron (hourly):
+  `curl -fsS -X POST -H "Authorization: Bearer $RENEWALS_JOB_SECRET" https://app.biruh.org/jobs/renewals`
+
 ## Email
 
 Member emails (renewal reminder, payment failed, membership ended) go out
