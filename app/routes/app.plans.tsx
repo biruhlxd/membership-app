@@ -20,6 +20,7 @@ type ActionResult = {
   errors: PlanFormErrors;
   error: string | null;
   saved: boolean;
+  warning: string | null;
 };
 
 export const action = async ({
@@ -38,11 +39,11 @@ export const action = async ({
     interval: field("interval"),
     intervalCount: field("intervalCount"),
   });
-  if (!parsed.ok) return { errors: parsed.errors, error: null, saved: false };
+  if (!parsed.ok) return { errors: parsed.errors, error: null, saved: false, warning: null };
 
   const result = await createPlan(admin, session.shop, parsed.plan);
-  if (!result.ok) return { errors: {}, error: result.error, saved: false };
-  return { errors: {}, error: null, saved: true };
+  if (!result.ok) return { errors: {}, error: result.error, saved: false, warning: null };
+  return { errors: {}, error: null, saved: true, warning: result.warning ?? null };
 };
 
 export default function Plans() {
@@ -82,7 +83,9 @@ export default function Plans() {
 
       <s-section heading="Add a plan">
         {fetcher.data?.saved && (
-          <s-banner tone="success">The plan is saved.</s-banner>
+          <s-banner tone={fetcher.data.warning ? "warning" : "success"}>
+            {fetcher.data.warning ?? "The plan is saved."}
+          </s-banner>
         )}
         {fetcher.data?.error && (
           <s-banner tone="critical">{fetcher.data.error}</s-banner>
@@ -106,6 +109,10 @@ export default function Plans() {
               </s-button>
               <s-text>{product?.title ?? errors.productId ?? ""}</s-text>
             </s-stack>
+            <s-text tone="neutral">
+              Saving sets every variant of this product to the joining price
+              and turns off one-time purchase, so it sells only as a membership.
+            </s-text>
             <input type="hidden" name="productId" value={product?.id ?? ""} />
             <s-text-field
               label="Joining price"

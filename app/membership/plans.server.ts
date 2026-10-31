@@ -1,11 +1,15 @@
 // Plan setup against Shopify and the database. The rules (form checks, the
 // selling plan group input) live in plan.ts.
 //
-// Both mutations are validated against the 2026-10 Admin API schema. They need
-// write_products and write_purchase_options; the protected subscription
-// scopes are not required for plan setup.
+// All operations are validated against the 2026-10 Admin API schema. They
+// need read_products, write_products and write_purchase_options; the
+// protected subscription scopes are not required for plan setup.
 import prisma from "../db.server";
-import { sellingPlanGroupInput, type PlanInput } from "./plan";
+import {
+  sellingPlanGroupInput,
+  variantPriceInputs,
+  type PlanInput,
+} from "./plan";
 
 type Admin = {
   graphql: (
@@ -46,9 +50,100 @@ const DELETE_GROUP = `#graphql
     }
   }`;
 
+const PRODUCT = `#graphql
+  query membershipProduct($id: ID!) {
+    product(id: $id) {
+      requiresSellingPlan
+      variants(first: 100) {
+        nodes {
+          id
+        }
+      }
+    }
+  }`;
+
+const SET_VARIANT_PRICES = `#graphql
+  mutation membershipVariantPrices(
+    $productId: ID!
+    $variants: [ProductVariantsBulkInput!]!
+  ) {
+    productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
+const REQUIRE_PLAN = `#graphql
+  mutation membershipRequirePlan($id: ID!) {
+    productUpdate(product: { id: $id, requiresSellingPlan: true }) {
+      product {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
 export type CreatePlanResult =
-  | { ok: true }
+  | { ok: true; warning?: string }
   | { ok: false; error: string };
+
+/**
+ * Make the product a membership product: every variant priced at the joining
+ * price, and sold only through a plan (no one-time purchase). Returns a
+ * warning for the merchant when Shopify refuses either change.
+ */
+async function prepareProduct(
+  admin: Admin,
+  productId: string,
+  joiningPrice: number,
+): Promise<string | undefined> {
+  try {
+    const product = (
+      await (await admin.graphql(PRODUCT, { variables: { id: productId } })).json()
+    ).data?.product;
+    const variantIds: string[] = (product?.variants?.nodes ?? []).map(
+      (v: { id: string }) => v.id,
+    );
+    const problems: string[] = [];
+
+    if (variantIds.length > 0) {
+      const prices = (
+        await (
+          await admin.graphql(SET_VARIANT_PRICES, {
+            variables: {
+              productId,
+              variants: variantPriceInputs(variantIds, joiningPrice),
+            },
+          })
+        ).json()
+      ).data?.productVariantsBulkUpdate;
+      if (!prices || prices.userErrors?.length) {
+        problems.push("set the product's price to the joining price");
+      }
+    }
+
+    if (!product?.requiresSellingPlan) {
+      const required = (
+        await (
+          await admin.graphql(REQUIRE_PLAN, { variables: { id: productId } })
+        ).json()
+      ).data?.productUpdate;
+      if (!required || required.userErrors?.length) {
+        problems.push("turn off one-time purchase for the product");
+      }
+    }
+
+    if (problems.length === 0) return undefined;
+    return `The plan is saved, but the app could not ${problems.join(" or ")}. Do it on the product page.`;
+  } catch {
+    return "The plan is saved, but the app could not update the product. Set its price to the joining price and turn off one-time purchase on the product page.";
+  }
+}
 
 export async function createPlan(
   admin: Admin,
@@ -102,7 +197,8 @@ export async function createPlan(
       .catch(() => undefined);
     return { ok: false, error: "The plan could not be saved. Try again." };
   }
-  return { ok: true };
+  const warning = await prepareProduct(admin, plan.productId, plan.joiningPrice);
+  return warning ? { ok: true, warning } : { ok: true };
 }
 
 export function listPlans(shop: string) {

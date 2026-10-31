@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePlanForm, sellingPlanGroupInput } from "./plan";
+import { parsePlanForm, sellingPlanGroupInput, variantPriceInputs } from "./plan";
 
 const form = {
   name: "Annual membership",
@@ -114,5 +114,23 @@ describe("sellingPlanGroupInput", () => {
 
   it("does not stop after a number of cycles", () => {
     expect(plan.billingPolicy.recurring).not.toHaveProperty("maxCycles");
+  });
+});
+
+describe("variantPriceInputs", () => {
+  it("prices every variant at the joining price, with two decimals", () => {
+    expect(
+      variantPriceInputs(
+        ["gid://shopify/ProductVariant/1", "gid://shopify/ProductVariant/2"],
+        120,
+      ),
+    ).toEqual([
+      { id: "gid://shopify/ProductVariant/1", price: "120.00" },
+      { id: "gid://shopify/ProductVariant/2", price: "120.00" },
+    ]);
+  });
+
+  it("gives nothing for a product with no variants", () => {
+    expect(variantPriceInputs([], 120)).toEqual([]);
   });
 });

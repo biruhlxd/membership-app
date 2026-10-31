@@ -118,3 +118,12 @@ export function sellingPlanGroupInput(plan: PlanInput) {
     ],
   };
 }
+
+/**
+ * The `productVariantsBulkUpdate` input that prices every variant of the
+ * membership product at the joining price, so the storefront shows what the
+ * member pays first instead of a "saving" against an unrelated price.
+ */
+export function variantPriceInputs(variantIds: string[], joiningPrice: number) {
+  return variantIds.map((id) => ({ id, price: money(joiningPrice) }));
+}
