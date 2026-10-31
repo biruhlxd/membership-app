@@ -79,8 +79,12 @@ community stay in the organization's learning platform.
 - Record each change in `CHANGES.md` under "Unreleased".
 - Commit author email for this repo: biruh@biruh.org (never a USSEA address).
 - Plain, short wording in UI text, docs and commit messages.
-- Prisma uses SQLite in development; production will be PostgreSQL. Create
-  migrations with `npx prisma migrate dev --name <name>`.
+- Prisma uses SQLite in development and MySQL in production. Edit only
+  `prisma/schema.prisma`; create the SQLite migration with
+  `npx prisma migrate dev --name <name>`, then `npm run db:mysql:schema` and a
+  MySQL migration in `prisma/mysql/migrations` (README "Hosting"). A string
+  field that can exceed 191 characters needs adding to LONG_TEXT in
+  `scripts/mysql-schema.mjs`.
 - `npm run dev` needs Biruh's Shopify login and a development store; a cloud
   session cannot run it. Leave manual store testing steps for Biruh.
 
