@@ -73,23 +73,6 @@ const FAIL_CONTRACT = `#graphql
     }
   }`;
 
-const MOVE_CYCLE = `#graphql
-  mutation membershipRenewNow($contractId: ID!, $index: Int!, $date: DateTime!) {
-    subscriptionBillingCycleScheduleEdit(
-      billingCycleInput: { contractId: $contractId, selector: { index: $index } }
-      input: { billingDate: $date, reason: MERCHANT_INITIATED }
-    ) {
-      billingCycle {
-        cycleIndex
-        billingAttemptExpectedDate
-      }
-      userErrors {
-        field
-        message
-      }
-    }
-  }`;
-
 const CONTRACT_LINES = `#graphql
   query membershipContractLines($id: ID!) {
     subscriptionContract(id: $id) {
@@ -246,6 +229,7 @@ export async function renewMembership(
   admin: Admin,
   membershipId: string,
   now = new Date(),
+  { early = false }: { early?: boolean } = {},
 ): Promise<RenewResult> {
   const m = await prisma.membership.findUnique({ where: { id: membershipId } });
   if (!m) return { charged: false, reason: "membership not found" };
@@ -269,8 +253,13 @@ export async function renewMembership(
   });
   if (pending > 0) return { charged: false, reason: "a charge is still in progress" };
 
-  const cycle = dueCycle(await upcomingCycles(admin, m.id, m.contractId), now);
-  if (!cycle) return { charged: false, reason: "nothing due" };
+  // Normally only a cycle whose date has come. Early (Renew now): the next
+  // unpaid cycle, whatever its date; Shopify bills a future cycle directly.
+  const cycles = await upcomingCycles(admin, m.id, m.contractId);
+  const cycle = early ? nextUnbilledCycle(cycles) : dueCycle(cycles, now);
+  if (!cycle) {
+    return { charged: false, reason: early ? "no unpaid renewal found" : "nothing due" };
+  }
 
   // Never charge a price the cycle doesn't owe: if the price can't be set,
   // don't charge at all; the next run tries again.
@@ -365,39 +354,17 @@ export async function runRenewals(admin: Admin, shop: string, now = new Date()) 
 }
 
 /**
- * Move a membership's next renewal to now and charge it. For testing, and
- * for a merchant who wants to bill early.
+ * Charge a membership's next unpaid renewal now, before its date. For
+ * testing, and for a merchant who wants to bill early. Billing dates can't
+ * be moved outside their cycle, so the future cycle is billed directly.
  */
 export async function renewNow(admin: Admin, membershipId: string) {
   const m = await prisma.membership.findUnique({ where: { id: membershipId } });
   if (!m) return { charged: false, reason: "membership not found" } as RenewResult;
 
-  // The next cycle still to be paid, not the cycle that contains today:
-  // today usually sits inside a cycle that is already billed.
-  const now = new Date();
-  const cycle = nextUnbilledCycle(await upcomingCycles(admin, m.id, m.contractId));
-  if (!cycle) return { charged: false, reason: "no unpaid renewal found" } as RenewResult;
-
-  if (new Date(cycle.billingAttemptExpectedDate) > now) {
-    const moved = (
-      await gql<{
-        subscriptionBillingCycleScheduleEdit: { userErrors: { message: string }[] };
-      }>(admin, MOVE_CYCLE, {
-        contractId: m.contractId,
-        index: cycle.cycleIndex,
-        date: now.toISOString(),
-      })
-    ).subscriptionBillingCycleScheduleEdit;
-    if (moved.userErrors.length > 0) {
-      return {
-        charged: false,
-        reason: moved.userErrors.map((e) => e.message).join(" "),
-      } as RenewResult;
-    }
-  }
   // A retry wait doesn't apply to a charge the merchant asked for.
   await prisma.membership.update({ where: { id: m.id }, data: { nextAttemptAt: null } });
-  return renewMembership(admin, m.id, new Date());
+  return renewMembership(admin, m.id, new Date(), { early: true });
 }
 
 type AttemptPayload = {

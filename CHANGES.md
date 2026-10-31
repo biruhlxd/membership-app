@@ -15,7 +15,7 @@
   retry after 1, 3 and 7 days, then the contract is marked failed in Shopify
   and the membership lapses (tag removed). A PENDING attempt with no result
   after a day becomes UNKNOWN. Members page lists members with "Renew now"
-  (moves the next renewal to today and charges it) and "Run due renewals".
+  (charges the next unpaid renewal early, billing that cycle directly) and "Run due renewals".
   POST /jobs/renewals runs all shops for a scheduler when
   RENEWALS_JOB_SECRET is set.
 - Theme app extension "Membership plan picker": an app block for the product
