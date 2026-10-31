@@ -11,6 +11,7 @@ import { afterFailure, classifyFailure, type DunningPolicy, type FailureKind } f
 export interface BillingCycle {
   cycleIndex: number;
   billingAttemptExpectedDate: string;
+  cycleStartAt?: string;
   status: string; // BILLED or UNBILLED
   skipped: boolean;
 }

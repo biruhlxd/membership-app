@@ -32,6 +32,7 @@ const DUE_CYCLES = `#graphql
     ) {
       nodes {
         cycleIndex
+        cycleStartAt
         billingAttemptExpectedDate
         status
         skipped
@@ -305,17 +306,31 @@ export async function renewMembership(
       };
     }>(admin, CHARGE, {
       contractId: m.contractId,
-      input: { idempotencyKey, billingCycleSelector: { index: cycle.cycleIndex } },
+      input: {
+        idempotencyKey,
+        billingCycleSelector: { index: cycle.cycleIndex },
+        // Billing a future cycle (Renew now): Shopify wants the origin time
+        // inside that cycle. Its start is safely inside; its billing date sits
+        // at the very end.
+        ...(new Date(cycle.billingAttemptExpectedDate) > now && cycle.cycleStartAt
+          ? { originTime: cycle.cycleStartAt }
+          : {}),
+      },
     })
   ).subscriptionBillingAttemptCreate;
 
   if (!result?.subscriptionBillingAttempt || result.userErrors.length > 0) {
     const code = result?.userErrors[0]?.code ?? null;
+    // Shopify refused the request itself; no card was tried. This is not a
+    // failed payment, so it doesn't start the retries or count toward a lapse.
     await prisma.billingAttempt.update({
       where: { id: row.id },
-      data: { state: "FAILED", errorCode: code },
+      data: { state: "REFUSED", errorCode: code },
     });
-    await handleFailure(admin, m.shop, m.id, code, now);
+    console.error(
+      `membership ${m.id}: Shopify refused the charge for cycle ${cycle.cycleIndex}:`,
+      result?.userErrors,
+    );
     return {
       charged: false,
       reason: `Shopify refused the charge: ${result?.userErrors.map((e) => e.message).join(" ") || "no attempt created"}`,
