@@ -96,8 +96,8 @@ export default function NewPlan() {
               <s-stack direction="block" gap="base">
                 <s-paragraph color="subdued">
                   The product members buy. Saving sets every variant to the
-                  joining price and turns off one-time purchase, so it sells
-                  only as a membership.
+                  joining price, marks it as not shipped, and turns off
+                  one-time purchase, so it sells only as a membership.
                 </s-paragraph>
                 <s-stack direction="inline" gap="base" alignItems="center">
                   <s-button onClick={pickProduct}>

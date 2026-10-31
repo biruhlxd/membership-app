@@ -132,8 +132,8 @@ describe("variantPriceInputs", () => {
         120,
       ),
     ).toEqual([
-      { id: "gid://shopify/ProductVariant/1", price: "120.00" },
-      { id: "gid://shopify/ProductVariant/2", price: "120.00" },
+      { id: "gid://shopify/ProductVariant/1", price: "120.00", inventoryItem: { requiresShipping: false } },
+      { id: "gid://shopify/ProductVariant/2", price: "120.00", inventoryItem: { requiresShipping: false } },
     ]);
   });
 

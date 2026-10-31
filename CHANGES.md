@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Fix: renewals charged the joining price. Shopify doesn't change a
+  contract line's price by itself; before each charge the app now sets the
+  line to the price the cycle owes (renewal price from cycle 1) through a
+  contract draft, and skips the charge if it can't.
+- Saving a plan marks the product's variants as not requiring shipping, so
+  membership orders don't wait to be fulfilled.
 - Renewals: each due, unbilled Shopify billing cycle is charged with
   subscriptionBillingAttemptCreate and the attempt's idempotency key, saved
   first as a PENDING BillingAttempt. Results come by webhook

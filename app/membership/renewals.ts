@@ -5,6 +5,7 @@
 // is the first renewal, cycle 2's the second, and so on. The checkout order is
 // not a billing cycle.
 
+import { priceForOrder } from "./billing";
 import { afterFailure, classifyFailure, type DunningPolicy, type FailureKind } from "./dunning";
 
 export interface BillingCycle {
@@ -52,4 +53,46 @@ export function onChargeFailed(
   return step.action === "retry"
     ? { action: "retry", failedAttempts, nextAttemptAt: step.at, kind }
     : { action: "lapse", failedAttempts, kind };
+}
+
+/** A contract line as the Admin API returns it (only the fields read here). */
+export interface ContractLine {
+  id: string;
+  currentPrice: { amount: string };
+  pricingPolicy: {
+    basePrice: { amount: string };
+    cycleDiscounts: { afterCycle: number; computedPrice: { amount: string } }[];
+  } | null;
+}
+
+const cents = (amount: string | number) => Math.round(Number(amount) * 100);
+
+/**
+ * The line prices to change before charging billing cycle `cycleIndex`.
+ *
+ * Shopify does not change a contract line's price on its own: the pricing
+ * policy only records the intent, and the app must set currentPrice. Cycle N
+ * is the order after N earlier orders (the checkout order is the first), so
+ * `afterCycle: 1` (the renewal price) applies from cycle 1.
+ */
+export function linePriceChanges(
+  lines: ContractLine[],
+  cycleIndex: number,
+): { lineId: string; price: string }[] {
+  const changes: { lineId: string; price: string }[] = [];
+  for (const line of lines) {
+    if (!line.pricingPolicy) continue;
+    const owed = priceForOrder(
+      Number(line.pricingPolicy.basePrice.amount),
+      line.pricingPolicy.cycleDiscounts.map((d) => ({
+        afterCycle: d.afterCycle,
+        amount: Number(d.computedPrice.amount),
+      })),
+      cycleIndex,
+    );
+    if (cents(owed) !== cents(line.currentPrice.amount)) {
+      changes.push({ lineId: line.id, price: owed.toFixed(2) });
+    }
+  }
+  return changes;
 }

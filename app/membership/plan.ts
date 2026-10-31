@@ -3,7 +3,8 @@
 //
 // The joining price is the selling plan's fixed price policy (first order);
 // the renewal price is its recurring policy with `afterCycle: 1` (second order
-// on). Shopify applies both when it bills; the app never adjusts prices.
+// on). Shopify only records them: before each renewal the renewal job sets
+// the contract line to the price owed (see linePriceChanges in renewals.ts).
 
 export type PlanInterval = "MONTH" | "YEAR";
 
@@ -198,5 +199,11 @@ export function sameTerms(a: PlanTerms, b: PlanTerms): boolean {
  * member pays first instead of a "saving" against an unrelated price.
  */
 export function variantPriceInputs(variantIds: string[], joiningPrice: number) {
-  return variantIds.map((id) => ({ id, price: money(joiningPrice) }));
+  return variantIds.map((id) => ({
+    id,
+    price: money(joiningPrice),
+    // A membership is never shipped; without this every order waits to be
+    // fulfilled.
+    inventoryItem: { requiresShipping: false },
+  }));
 }

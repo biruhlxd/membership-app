@@ -15,9 +15,11 @@ import { DEFAULT_DUNNING } from "./dunning";
 import type { Admin } from "./plans.server";
 import {
   dueCycle,
+  linePriceChanges,
   normalizeErrorCode,
   onChargeFailed,
   type BillingCycle,
+  type ContractLine,
 } from "./renewals";
 
 const DUE_CYCLES = `#graphql
@@ -99,6 +101,118 @@ const MOVE_CYCLE = `#graphql
     }
   }`;
 
+const CONTRACT_LINES = `#graphql
+  query membershipContractLines($id: ID!) {
+    subscriptionContract(id: $id) {
+      lines(first: 10) {
+        nodes {
+          id
+          currentPrice {
+            amount
+          }
+          pricingPolicy {
+            basePrice {
+              amount
+            }
+            cycleDiscounts {
+              afterCycle
+              computedPrice {
+                amount
+              }
+            }
+          }
+        }
+      }
+    }
+  }`;
+
+const CONTRACT_DRAFT = `#graphql
+  mutation membershipContractDraft($contractId: ID!) {
+    subscriptionContractUpdate(contractId: $contractId) {
+      draft {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
+const DRAFT_LINE_PRICE = `#graphql
+  mutation membershipDraftLinePrice(
+    $draftId: ID!
+    $lineId: ID!
+    $input: SubscriptionLineUpdateInput!
+  ) {
+    subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: $input) {
+      draft {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
+const DRAFT_COMMIT = `#graphql
+  mutation membershipDraftCommit($draftId: ID!) {
+    subscriptionDraftCommit(draftId: $draftId) {
+      contract {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
+type UserErrors = { userErrors: { message: string }[] };
+
+function check(result: UserErrors | null | undefined, step: string) {
+  if (!result) throw new Error(`${step}: no response from Shopify`);
+  if (result.userErrors.length > 0) {
+    throw new Error(`${step}: ${result.userErrors.map((e) => e.message).join(" ")}`);
+  }
+}
+
+/**
+ * Set the contract's line prices to what cycle `cycleIndex` owes. Shopify
+ * keeps charging the line's currentPrice until the app changes it; the
+ * pricing policy is only the intent. Returns the lines changed.
+ */
+async function alignPrices(admin: Admin, contractId: string, cycleIndex: number) {
+  const { subscriptionContract } = await gql<{
+    subscriptionContract: { lines: { nodes: ContractLine[] } } | null;
+  }>(admin, CONTRACT_LINES, { id: contractId });
+  const changes = linePriceChanges(subscriptionContract?.lines.nodes ?? [], cycleIndex);
+  if (changes.length === 0) return changes;
+
+  const { subscriptionContractUpdate: draft } = await gql<{
+    subscriptionContractUpdate: UserErrors & { draft: { id: string } | null };
+  }>(admin, CONTRACT_DRAFT, { contractId });
+  check(draft, "open contract draft");
+  const draftId = draft.draft!.id;
+
+  for (const change of changes) {
+    const { subscriptionDraftLineUpdate: line } = await gql<{
+      subscriptionDraftLineUpdate: UserErrors;
+    }>(admin, DRAFT_LINE_PRICE, {
+      draftId,
+      lineId: change.lineId,
+      input: { currentPrice: change.price },
+    });
+    check(line, "set line price");
+  }
+  const { subscriptionDraftCommit: commit } = await gql<{
+    subscriptionDraftCommit: UserErrors;
+  }>(admin, DRAFT_COMMIT, { draftId });
+  check(commit, "commit contract draft");
+  return changes;
+}
+
 // How many cycles to read after the last paid one. Missed cycles (the job
 // was down) are inside this window and are charged oldest first.
 const CYCLES_AHEAD = 10;
@@ -162,6 +276,20 @@ export async function renewMembership(
   });
   const cycle = dueCycle(subscriptionBillingCycles?.nodes ?? [], now);
   if (!cycle) return { charged: false, reason: "nothing due" };
+
+  // Never charge a price the cycle doesn't owe: if the price can't be set,
+  // don't charge at all; the next run tries again.
+  try {
+    const changed = await alignPrices(admin, m.contractId, cycle.cycleIndex);
+    if (changed.length > 0) {
+      console.log(
+        `membership ${m.id}: cycle ${cycle.cycleIndex} price set to ${changed.map((c) => c.price).join(", ")}`,
+      );
+    }
+  } catch (error) {
+    console.error(`membership ${m.id}: could not set the renewal price:`, error);
+    return { charged: false, reason: "could not set the renewal price" };
+  }
 
   const attempt =
     (await prisma.billingAttempt.count({

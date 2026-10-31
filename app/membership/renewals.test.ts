@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_DUNNING } from "./dunning";
-import { dueCycle, normalizeErrorCode, onChargeFailed } from "./renewals";
+import {
+  dueCycle,
+  linePriceChanges,
+  normalizeErrorCode,
+  onChargeFailed,
+} from "./renewals";
 
 const now = new Date("2027-11-01T12:00:00Z");
 const cycle = (cycleIndex: number, date: string, status = "UNBILLED", skipped = false) => ({
@@ -68,5 +73,33 @@ describe("onChargeFailed", () => {
       failedAttempts: 4,
       kind: "transient",
     });
+  });
+});
+
+describe("linePriceChanges", () => {
+  // As Shopify stores a plan of $120 to join, then $90 after cycle 1.
+  const line = (currentPrice: string) => ({
+    id: "gid://shopify/SubscriptionLine/1",
+    currentPrice: { amount: currentPrice },
+    pricingPolicy: {
+      basePrice: { amount: "120.0" },
+      cycleDiscounts: [{ afterCycle: 1, computedPrice: { amount: "90.0" } }],
+    },
+  });
+
+  it("drops the price to the renewal price before the first renewal", () => {
+    expect(linePriceChanges([line("120.0")], 1)).toEqual([
+      { lineId: "gid://shopify/SubscriptionLine/1", price: "90.00" },
+    ]);
+  });
+
+  it("changes nothing once the line already has the renewal price", () => {
+    expect(linePriceChanges([line("90.0")], 2)).toEqual([]);
+  });
+
+  it("leaves lines without a pricing policy alone", () => {
+    expect(
+      linePriceChanges([{ ...line("50.0"), pricingPolicy: null }], 1),
+    ).toEqual([]);
   });
 });

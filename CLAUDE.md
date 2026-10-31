@@ -50,8 +50,12 @@ community stay in the organization's learning platform.
   `billingAttemptKey(contractId, cycleIndex, attempt)` as its idempotency key,
   and the attempt is recorded in `BillingAttempt` (unique key) before the call.
 - **Joining vs renewal price** is Shopify's recurring pricing policy
-  (`afterCycle: 1` = from the second order on), set on the selling plan; the
-  app does not adjust prices at billing time.
+  (`afterCycle: 1` = from the second order on), set on the selling plan.
+  Shopify does NOT change a contract line's price by itself (learned
+  2026-10-31: the first renewal was charged $120 instead of $90). Before
+  every charge, `alignPrices` in `renewals.server.ts` sets currentPrice to
+  what the cycle owes (`linePriceChanges`), and the charge is skipped if
+  that fails.
 - **Tags:** only remove tags that belong to the app's plans; never touch the
   merchant's own tags (`tagChanges` in `app/membership/status.ts`).
 - **Rules stay pure.** Membership logic lives in `app/membership/` as pure
