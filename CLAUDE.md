@@ -121,6 +121,15 @@ Then: Organizations, Credentials, Moodle connector, App Store work
 (Shopify app billing for the $39/$149/$399 tiers, product-page purchase
 options extension, listing), per the plan doc.
 
+STOPPED 2026-11-01 21:13 UTC, do not start without Biruh: the app took the
+whole biruh.org account down (CloudLinux NPROC limit 100, which counts
+threads; one Passenger lsnode with Prisma = 44 threads; a stuck deploy filled
+the rest; biruh.org and Moodle sites returned 503 for over an hour). It was
+stopped with cloudlinux-selector; the hourly cron line was removed. Before
+it runs on a shared account again: one Passenger instance, Prisma with a
+small fixed thread and connection count, no npm ci or prisma generate on the
+server. Recommended instead: separate hosting.
+
 Live since 2026-10-31: https://app.biruh.org (live Shopify app "Biruh
 Membership", shopify.app.toml) on biruh.org shared hosting, MySQL, hourly
 cron at :07. Deploy with `bash scripts/deploy-live.sh`, plus `npm run deploy`
