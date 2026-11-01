@@ -103,6 +103,14 @@ Status 2026-10-31 (dev store: biruh-tech.myshopify.com):
   account menu in the checkout and accounts editor), failed-payment retries
   and lapse.
 
+Waiting for Biruh to test (ask him, on the dev app "Biruh Membership (dev)"
+on biruh-tech; create a plan there first, plans belong to the app that made
+them): member pricing (discount appears under Discounts, 10% for members);
+plan picker block from the dev app; buy with a test card (tag added);
+members-only products (blocked logged out, allowed for a member); member
+portal page in the customer account and cancel (member shows "Ending, access
+until …", keeps the tag); payment-failed email with a declining card.
+
 Still to do for Core:
 1. Emails: built; sent over SMTP once .env has the biruh.org mailbox
    settings (README "Email").
