@@ -5,6 +5,7 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { listPlans } from "../membership/plans.server";
+import { seatTypesFromJson } from "../membership/organizations";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -15,6 +16,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       id: plan.id,
       name: plan.name,
       tag: plan.tag,
+      seats: seatTypesFromJson(plan.seatTypes)
+        .map((s) => `${s.seats} ${s.name}`)
+        .join(", "),
       created: plan.createdAt.toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
@@ -72,6 +76,7 @@ export default function Plans() {
             <s-table-header-row>
               <s-table-header listSlot="primary">Plan</s-table-header>
               <s-table-header listSlot="labeled">Customer tag</s-table-header>
+              <s-table-header listSlot="labeled">Seats</s-table-header>
               <s-table-header listSlot="labeled">Created</s-table-header>
             </s-table-header-row>
             <s-table-body>
@@ -85,6 +90,7 @@ export default function Plans() {
                   <s-table-cell>
                     <s-badge>{plan.tag}</s-badge>
                   </s-table-cell>
+                  <s-table-cell>{plan.seats || "For one person"}</s-table-cell>
                   <s-table-cell>{plan.created}</s-table-cell>
                 </s-table-row>
               ))}

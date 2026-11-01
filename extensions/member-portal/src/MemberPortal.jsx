@@ -1,6 +1,7 @@
 import '@shopify/ui-extensions/preact';
 import {render} from 'preact';
 import {useEffect, useState} from 'preact/hooks';
+import {Organizations} from './Organizations.jsx';
 
 // The member's own page in the customer account: each membership with its
 // status, next renewal and price, and a way to cancel. Reads and writes go
@@ -179,6 +180,7 @@ function MemberPortal() {
           </s-section>
         );
       })}
+      <Organizations />
     </s-page>
   );
 }

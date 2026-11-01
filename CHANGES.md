@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Organizations (first version): a plan can have up to three seat types
+  (name, tag, number of seats); whoever buys it is the organization admin.
+  In the member portal the admin sees seats used per type, invites people
+  by email into a seat type, and ends seats or withdraws invitations; an
+  invited person gets an email, sees the invitation in their portal and
+  accepts or declines. An active seat gives the seat type's tag while the
+  organization's membership grants access, so seats pause when it lapses
+  and return when it renews. Seat tags count as member tags for
+  members-only products. The portal reaches the app's server with Shopify's
+  session token at the address in the $app.app_url shop metafield; this
+  needs Shopify's network access approval for the extension.
 - Named: Biruh Membership, by Biruh Tech (Biruh Alemnew). LICENSE.md is now
   proprietary; Shopify's MIT notice for the template moved to
   LICENSE-shopify-template.md.

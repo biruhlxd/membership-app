@@ -135,3 +135,12 @@ export function managedTags(plans: { tag: string; seatTypes: string | null }[]):
   }
   return [...tags.values()];
 }
+
+/** The seat type rows of the plan form (fields seatName0..2, seatTag0..2, seatCount0..2). */
+export function seatRowsFromForm(field: (key: string) => string): SeatTypeRow[] {
+  return [0, 1, 2].map((i) => ({
+    name: field(`seatName${i}`),
+    tag: field(`seatTag${i}`),
+    seats: field(`seatCount${i}`),
+  }));
+}

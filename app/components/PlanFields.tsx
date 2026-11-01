@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { PlanFormErrors } from "../membership/plan";
+import type { SeatType } from "../membership/organizations";
 
 export interface PlanDefaults {
   name: string;
@@ -9,6 +10,7 @@ export interface PlanDefaults {
   interval: "MONTH" | "YEAR";
   intervalCount: string;
   memberDiscount: string;
+  seatTypes?: SeatType[];
 }
 
 /**
@@ -99,6 +101,45 @@ export function PlanFields({
               <s-option value="MONTH">Months</s-option>
             </s-select>
           </s-grid>
+        </s-stack>
+      </s-section>
+
+      <s-section heading="Organization seats">
+        <s-stack direction="block" gap="base">
+          <s-paragraph color="subdued">
+            Leave empty for a membership for one person. Add seat types to sell
+            this plan to organizations such as clubs or schools: the buyer
+            becomes the organization&apos;s admin and invites people into these
+            seats from their account. Each seat gives its holder the seat
+            type&apos;s tag while the organization&apos;s membership is active.
+          </s-paragraph>
+          {[0, 1, 2].map((i) => {
+            const seat = defaults?.seatTypes?.[i];
+            return (
+              <s-grid key={i} gridTemplateColumns="2fr 2fr 1fr" gap="base">
+                <s-text-field
+                  label="Seat type"
+                  name={`seatName${i}`}
+                  placeholder={i === 0 ? "Coach" : undefined}
+                  defaultValue={seat?.name ?? ""}
+                />
+                <s-text-field
+                  label="Tag for seat holders"
+                  name={`seatTag${i}`}
+                  placeholder={i === 0 ? "member-coach" : undefined}
+                  defaultValue={seat?.tag ?? ""}
+                />
+                <s-number-field
+                  label="Seats"
+                  name={`seatCount${i}`}
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  defaultValue={seat ? String(seat.seats) : ""}
+                />
+              </s-grid>
+            );
+          })}
         </s-stack>
       </s-section>
 

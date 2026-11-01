@@ -7,6 +7,7 @@ import { useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { parsePlanForm, type PlanFormErrors } from "../membership/plan";
+import { parseSeatTypes, seatRowsFromForm } from "../membership/organizations";
 import { getPlan, updatePlan } from "../membership/plans.server";
 import { PlanFields } from "../components/PlanFields";
 
@@ -25,8 +26,8 @@ type ActionResult = {
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   const { admin, session, redirect } = await authenticate.admin(request);
-  const plan = await getPlan(admin, session.shop, params.id ?? "");
-  if (!plan?.product) {
+  const existing = await getPlan(admin, session.shop, params.id ?? "");
+  if (!existing?.product) {
     return { errors: {}, error: "The plan was not found in Shopify.", warning: null } satisfies ActionResult;
   }
   const data = await request.formData();
@@ -36,7 +37,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     name: field("name"),
     tag: field("tag"),
     // The product can't change on an existing plan.
-    productId: plan.product.id,
+    productId: existing.product.id,
     joiningPrice: field("joiningPrice"),
     renewalPrice: field("renewalPrice"),
     interval: field("interval"),
@@ -46,8 +47,13 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   if (!parsed.ok) {
     return { errors: parsed.errors, error: null, warning: null } satisfies ActionResult;
   }
+  const seats = parseSeatTypes(seatRowsFromForm(field));
+  if (!seats.ok) {
+    return { errors: {}, error: seats.error, warning: null } satisfies ActionResult;
+  }
+  const plan = { ...parsed.plan, seatTypes: seats.seatTypes };
 
-  const result = await updatePlan(admin, session.shop, plan.id, parsed.plan);
+  const result = await updatePlan(admin, session.shop, existing.id, plan);
   if (!result.ok) {
     return { errors: {}, error: result.error, warning: null } satisfies ActionResult;
   }
@@ -105,6 +111,7 @@ export default function EditPlan() {
                 interval: terms.interval,
                 intervalCount: String(terms.intervalCount),
                 memberDiscount: plan.memberDiscount ? String(plan.memberDiscount) : "",
+                seatTypes: plan.seatTypes,
               }}
               tagLocked={
                 plan.memberCount > 0

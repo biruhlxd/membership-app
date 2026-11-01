@@ -9,6 +9,7 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { parsePlanForm, type PlanFormErrors } from "../membership/plan";
+import { parseSeatTypes, seatRowsFromForm } from "../membership/organizations";
 import { createPlan } from "../membership/plans.server";
 import { PlanFields } from "../components/PlanFields";
 
@@ -41,8 +42,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (!parsed.ok) {
     return { errors: parsed.errors, error: null, warning: null } satisfies ActionResult;
   }
+  const seats = parseSeatTypes(seatRowsFromForm(field));
+  if (!seats.ok) {
+    return { errors: {}, error: seats.error, warning: null } satisfies ActionResult;
+  }
+  const plan = { ...parsed.plan, seatTypes: seats.seatTypes };
 
-  const result = await createPlan(admin, session.shop, parsed.plan);
+  const result = await createPlan(admin, session.shop, plan);
   if (!result.ok) {
     return { errors: {}, error: result.error, warning: null } satisfies ActionResult;
   }

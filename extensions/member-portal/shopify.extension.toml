@@ -16,3 +16,7 @@ target = "customer-account.page.render"
 [extensions.capabilities]
 # Lets the page call the Customer Account API as the signed-in member.
 api_access = true
+# Lets the page call this app's own server (/api/portal) for organization
+# seats. Needs Shopify's approval: Partner Dashboard > API access requests >
+# "Allow network access in checkout and account UI extensions".
+network_access = true

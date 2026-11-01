@@ -20,5 +20,27 @@
     "CANCELLED": "Cancelled"
   },
   "confirmBodyNow": "Your membership ends now. You won't be charged again.",
-  "accessUntil": "Cancelled. Your member access continues until {{date}}."
+  "accessUntil": "Cancelled. Your member access continues until {{date}}.",
+  "org": {
+    "error": "That didn't work. Try again in a moment.",
+    "invitationHeading": "You're invited to a membership seat",
+    "invitationBody": "You're invited to a {{seat}} seat in an organization's {{plan}}. The seat gives you member access and member prices.",
+    "accept": "Accept",
+    "decline": "Decline",
+    "seatHeading": "Your {{seat}} seat",
+    "seatActive": "Active, through an organization's {{plan}}.",
+    "seatPaused": "Paused: the organization's {{plan}} isn't active right now.",
+    "manageHeading": "Seats in your {{plan}}",
+    "inactive": "Your organization's membership isn't active, so its seats are paused and you can't invite people.",
+    "usage": "{{seat}}: {{used}} of {{total}} seats used",
+    "statusActive": "Active",
+    "statusInvited": "Invited",
+    "endSeat": "End seat",
+    "withdraw": "Withdraw invitation",
+    "inviteHeading": "Invite someone",
+    "inviteEmail": "Email address",
+    "inviteSeat": "Seat type",
+    "seatOption": "{{seat}} ({{left}} left)",
+    "invite": "Send invitation"
+  }
 }

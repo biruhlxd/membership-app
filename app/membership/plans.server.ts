@@ -6,6 +6,7 @@
 // protected subscription scopes are not required for plan setup.
 import prisma from "../db.server";
 import { syncMembersOnly } from "./membersOnly.server";
+import { seatTypesFromJson, seatTypesToJson, type SeatType } from "./organizations";
 import {
   memberDiscountInput,
   memberSegmentQuery,
@@ -196,6 +197,7 @@ export async function createPlan(
         sellingPlanGroupId: groupId,
         productId: plan.productId,
         tag: plan.tag,
+        seatTypes: seatTypesToJson(plan.seatTypes ?? []),
       },
     });
   } catch {
@@ -307,6 +309,7 @@ export interface EditablePlan {
   product: { id: string; title: string } | null;
   terms: PlanTerms | null;
   memberDiscount: number | null;
+  seatTypes: SeatType[];
 }
 
 /** The plan's row, finding and saving its Shopify ids if it predates them. */
@@ -371,6 +374,7 @@ export async function getPlan(
     product: shopify.product,
     terms: shopify.terms,
     memberDiscount: plan.memberDiscount,
+    seatTypes: seatTypesFromJson(plan.seatTypes),
   };
 }
 
@@ -439,7 +443,7 @@ export async function updatePlan(
 
   await prisma.membershipPlan.update({
     where: { id: row.id },
-    data: { name: plan.name, tag: plan.tag },
+    data: { name: plan.name, tag: plan.tag, seatTypes: seatTypesToJson(plan.seatTypes ?? []) },
   });
   const productId = row.productId ?? after.product?.id;
   const warning = joinWarnings(

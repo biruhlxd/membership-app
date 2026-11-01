@@ -6,6 +6,8 @@
 // on). Shopify only records them: before each renewal the renewal job sets
 // the contract line to the price owed (see linePriceChanges in renewals.ts).
 
+import type { SeatType } from "./organizations";
+
 export type PlanInterval = "MONTH" | "YEAR";
 
 export interface PlanForm {
@@ -30,6 +32,8 @@ export interface PlanInput {
   intervalCount: number;
   /** Percent off everything members buy (1-100), or null for none. */
   memberDiscount?: number | null;
+  /** Seat types for an organization plan; empty for a plan for one person. */
+  seatTypes?: SeatType[];
 }
 
 export type PlanFormErrors = Partial<Record<keyof PlanForm, string>>;
