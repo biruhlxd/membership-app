@@ -1,7 +1,7 @@
 // Member emails: when they are due and what they say.
 // Pure functions: no Shopify calls, no database, no sending.
 
-export type EmailKind = "RENEWAL_REMINDER" | "PAYMENT_FAILED" | "LAPSED";
+export type EmailKind = "RENEWAL_REMINDER" | "PAYMENT_FAILED" | "LAPSED" | "SEAT_INVITE";
 
 /** Days before a renewal that the reminder goes out. */
 export const REMINDER_LEAD_DAYS = 7;
@@ -29,7 +29,7 @@ export function reminderDue(
  */
 export function emailKey(
   kind: EmailKind,
-  detail: { renewalAt?: Date; failedAttempts?: number } = {},
+  detail: { renewalAt?: Date; failedAttempts?: number; seatId?: string } = {},
 ): string {
   switch (kind) {
     case "RENEWAL_REMINDER":
@@ -38,6 +38,8 @@ export function emailKey(
       return `failed-${detail.failedAttempts ?? 0}`;
     case "LAPSED":
       return "lapsed";
+    case "SEAT_INVITE":
+      return `invite-${detail.seatId ?? "unknown"}`;
   }
 }
 
@@ -106,6 +108,26 @@ export function lapsedEmail(p: {
       `We couldn't collect payment for your ${p.planName} with ${p.shopName}, so your membership has ended and member access has stopped.`,
       "",
       "To become a member again, buy the membership in our store.",
+      "",
+      p.shopName,
+    ].join("\n"),
+  };
+}
+
+export function seatInviteEmail(p: {
+  shopName: string;
+  inviterName: string | null;
+  seatName: string;
+}): EmailContent {
+  const who = p.inviterName ?? "Your organization";
+  return {
+    subject: `${who} invited you to a ${p.seatName} membership seat`,
+    text: [
+      "Hello,",
+      "",
+      `${who} has a membership with ${p.shopName} and invited you to one of its ${p.seatName} seats. The seat gives you member access and member prices.`,
+      "",
+      `To accept, log in to your account at ${p.shopName} with this email address, open the Membership page and choose Accept. If you don't have an account yet, logging in with this address creates one.`,
       "",
       p.shopName,
     ].join("\n"),

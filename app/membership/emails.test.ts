@@ -5,6 +5,7 @@ import {
   paymentFailedEmail,
   reminderDue,
   renewalReminderEmail,
+  seatInviteEmail,
 } from "./emails";
 
 const now = new Date("2027-10-24T12:00:00Z");
@@ -65,5 +66,17 @@ describe("email content", () => {
     expect(
       lapsedEmail({ shopName: "USSEA", firstName: null, planName: "Coach membership" }).text,
     ).toContain("buy the membership in our store");
+  });
+});
+
+describe("seat invitations", () => {
+  it("gives one invitation email per seat", () => {
+    expect(emailKey("SEAT_INVITE", { seatId: "seat1" })).toBe("invite-seat1");
+  });
+
+  it("says who invited them, to which seat, and how to accept", () => {
+    const email = seatInviteEmail({ shopName: "USSEA", inviterName: "Addis Club", seatName: "Coach" });
+    expect(email.subject).toBe("Addis Club invited you to a Coach membership seat");
+    expect(email.text).toContain("open the Membership page and choose Accept");
   });
 });

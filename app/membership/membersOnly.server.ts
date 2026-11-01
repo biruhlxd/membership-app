@@ -5,6 +5,7 @@
 import prisma from "../db.server";
 import type { Admin } from "./plans.server";
 import { MEMBERS_ONLY_TAG, membersOnlyConfig } from "./membersOnly";
+import { managedTags } from "./organizations";
 
 const FUNCTION_HANDLE = "members-only";
 const CONFIG = { namespace: "$app:membership", key: "members-only" };
@@ -99,8 +100,12 @@ function check(result: { userErrors?: { message: string }[] } | null | undefined
  * otherwise only rewrites its settings.
  */
 export async function syncMembersOnly(admin: Admin, shop: string) {
-  const plans = await prisma.membershipPlan.findMany({ where: { shop }, select: { tag: true } });
-  const value = membersOnlyConfig(plans.map((p) => p.tag));
+  // Members are customers with a plan tag or a seat tag from an organization.
+  const plans = await prisma.membershipPlan.findMany({
+    where: { shop },
+    select: { tag: true, seatTypes: true },
+  });
+  const value = membersOnlyConfig(managedTags(plans));
 
   const existing = ((await call(admin, VALIDATIONS))?.validations?.nodes ?? []).find(
     (v: { shopifyFunction?: { handle?: string } }) =>

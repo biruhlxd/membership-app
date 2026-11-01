@@ -16,6 +16,7 @@ import {
   paymentFailedEmail,
   reminderDue,
   renewalReminderEmail,
+  seatInviteEmail,
   type EmailContent,
   type EmailKind,
 } from "./emails";
@@ -188,4 +189,58 @@ export async function sendDueReminders(admin: Admin, shop: string, now = new Dat
     }
   }
   return sent;
+}
+
+const INVITE_CONTEXT = `#graphql
+  query membershipInviteContext($adminId: ID!) {
+    shop {
+      name
+      contactEmail
+    }
+    customer(id: $adminId) {
+      displayName
+    }
+  }`;
+
+/**
+ * Email someone their seat invitation, once per seat. Unlike the other
+ * emails it goes to the invited address, not the membership's customer.
+ */
+export async function notifySeatInvite(
+  admin: Admin,
+  seat: { id: string; email: string; seatName: string },
+  organization: { membershipId: string; adminCustomerId: string },
+): Promise<boolean> {
+  const key = emailKey("SEAT_INVITE", { seatId: seat.id });
+  const where = {
+    membershipId_kind_key: { membershipId: organization.membershipId, kind: "SEAT_INVITE", key },
+  };
+  if (await prisma.emailLog.findUnique({ where })) return false;
+
+  const data = (
+    await (
+      await admin.graphql(INVITE_CONTEXT, { variables: { adminId: organization.adminCustomerId } })
+    ).json()
+  ).data;
+  const email = seatInviteEmail({
+    shopName: data.shop.name,
+    inviterName: data.customer?.displayName ?? null,
+    seatName: seat.seatName,
+  });
+  await prisma.emailLog.create({
+    data: {
+      membershipId: organization.membershipId,
+      kind: "SEAT_INVITE",
+      key,
+      to: seat.email,
+      subject: email.subject,
+      delivery: "PENDING",
+    },
+  });
+  const delivery = await deliver(seat.email, email, {
+    shopName: data.shop.name,
+    replyTo: data.shop.contactEmail ?? null,
+  });
+  await prisma.emailLog.update({ where, data: { delivery } });
+  return true;
 }

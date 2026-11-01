@@ -6,6 +6,7 @@
 //
 // All operations are validated against the 2026-10 Admin API schema.
 import prisma from "../db.server";
+import { managedTags, seatTypesFromJson } from "./organizations";
 import type { Admin } from "./plans.server";
 import {
   accessEndsAt,
@@ -140,6 +141,28 @@ export async function syncContract(
   });
 
   const tags = await syncCustomerTags(admin, shop, contract.customer);
+
+  // An organization plan: make sure the buyer has their organization, and
+  // bring every seat holder's tags in line with the organization's status
+  // (seats pause when it lapses and come back when it renews).
+  if (seatTypesFromJson(plan.seatTypes).length > 0) {
+    const membership = await prisma.membership.findUniqueOrThrow({
+      where: { shop_contractId: { shop, contractId: contract.id } },
+      select: { id: true },
+    });
+    const organization = await prisma.organization.upsert({
+      where: { membershipId: membership.id },
+      create: { shop, membershipId: membership.id, adminCustomerId: contract.customer.id },
+      update: {},
+    });
+    const holders = await prisma.seat.findMany({
+      where: { organizationId: organization.id, status: "ACTIVE", customerId: { not: null } },
+      select: { customerId: true },
+    });
+    for (const customerId of new Set(holders.map((h) => h.customerId!))) {
+      await syncTagsForCustomer(admin, shop, customerId);
+    }
+  }
   return { synced: true, status, tags };
 }
 
@@ -147,29 +170,65 @@ export async function syncContract(
  * Give a customer the tag of every plan they hold access through, and take
  * away the app's other plan tags. The merchant's own tags are never touched.
  */
+const CUSTOMER_TAGS = `#graphql
+  query membershipCustomerTags($id: ID!) {
+    customer(id: $id) {
+      id
+      tags
+    }
+  }`;
+
+/**
+ * Bring one customer's plan and seat tags in line, by customer id: for seat
+ * holders, who have no contract of their own.
+ */
+export async function syncTagsForCustomer(admin: Admin, shop: string, customerId: string) {
+  const { customer } = await gql<{ customer: { id: string; tags: string[] } | null }>(
+    admin,
+    CUSTOMER_TAGS,
+    { id: customerId },
+  );
+  if (!customer) return null;
+  return syncCustomerTags(admin, shop, customer);
+}
+
 async function syncCustomerTags(
   admin: Admin,
   shop: string,
   customer: { id: string; tags: string[] },
 ) {
-  const [memberships, plans] = await Promise.all([
+  const [memberships, seats, plans] = await Promise.all([
     prisma.membership.findMany({
       where: { shop, customerId: customer.id },
       select: { status: true, plan: { select: { tag: true } } },
     }),
-    prisma.membershipPlan.findMany({ where: { shop }, select: { tag: true } }),
+    // Seats held in organizations: the seat's tag, while the organization's
+    // own membership grants access.
+    prisma.seat.findMany({
+      where: { customerId: customer.id, status: "ACTIVE", organization: { shop } },
+      select: { tag: true, organization: { select: { membershipId: true } } },
+    }),
+    prisma.membershipPlan.findMany({ where: { shop }, select: { tag: true, seatTypes: true } }),
   ]);
-  const wanted = desiredTags(
-    memberships.map((m) => ({
+  const orgStatus = new Map(
+    (
+      await prisma.membership.findMany({
+        where: { id: { in: seats.map((s) => s.organization.membershipId) } },
+        select: { id: true, status: true },
+      })
+    ).map((m) => [m.id, m.status as MembershipStatus]),
+  );
+  const wanted = desiredTags([
+    ...memberships.map((m) => ({
       status: m.status as MembershipStatus,
       tag: m.plan.tag,
     })),
-  );
-  const changes = tagChanges(
-    customer.tags,
-    plans.map((p) => p.tag),
-    wanted,
-  );
+    ...seats.map((s) => ({
+      status: orgStatus.get(s.organization.membershipId) ?? ("CANCELLED" as MembershipStatus),
+      tag: s.tag,
+    })),
+  ]);
+  const changes = tagChanges(customer.tags, managedTags(plans), wanted);
 
   if (changes.add.length > 0) {
     await gql(admin, TAGS_ADD, { id: customer.id, tags: changes.add });

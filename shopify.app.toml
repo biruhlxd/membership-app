@@ -54,6 +54,13 @@ api_version = "2026-10"
   uri = "/webhooks/compliance"
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
+# Where this app's server is, for the member portal (app/membership/appUrl.server.ts).
+[shop.metafields.app.app_url]
+name = "Membership app address"
+type = "url"
+access.admin = "merchant_read"
+access.customer_account = "read"
+
 [auth]
 redirect_urls = [ "https://app.biruh.org/auth/callback", "https://app.biruh.org/api/auth" ]
 
