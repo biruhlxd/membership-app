@@ -23,6 +23,15 @@ if (process.env.APP_LOG_FILE) {
 process.chdir(__dirname);
 
 process.env.NODE_ENV = process.env.NODE_ENV ?? "production";
+
+// The shared host caps how many threads the account may run (CloudLinux).
+// Prisma's engine would start a thread per CPU core and a connection pool
+// sized from them; keep both small. Set before Prisma loads.
+process.env.TOKIO_WORKER_THREADS = process.env.TOKIO_WORKER_THREADS ?? "2";
+if (process.env.DATABASE_URL && !/[?&]connection_limit=/.test(process.env.DATABASE_URL)) {
+  const join = process.env.DATABASE_URL.includes("?") ? "&" : "?";
+  process.env.DATABASE_URL += `${join}connection_limit=3`;
+}
 process.argv = [process.argv[0], "react-router-serve", path.join(__dirname, "build/server/index.js")];
 
 require(path.join(path.dirname(require.resolve("@react-router/serve/package.json")), "bin.js"));

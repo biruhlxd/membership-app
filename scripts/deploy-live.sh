@@ -31,6 +31,8 @@ rm -rf ~/$APP.new && mkdir -p ~/$APP.new && tar -xf - -C ~/$APP.new
 rm -rf ~/$APP.old && mv ~/$APP ~/$APP.old && mv ~/$APP.new ~/$APP
 cp ~/$APP.old/stderr.log ~/$APP/ 2>/dev/null || true
 source ~/nodevenv/$APP/22/bin/activate
+# Keep Prisma CLI steps within the thread cap of the host.
+export TOKIO_WORKER_THREADS=2
 cd ~/$APP
 # --ignore-scripts: install scripts (esbuild) are only for building, which
 # happens locally, and can hit the process limit of the host (EAGAIN). The
