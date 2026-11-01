@@ -28,7 +28,10 @@ tar --force-local -rf "$PKG" build
 "${SSH[@]}" 'set -e
 APP=biruh-membership
 rm -rf ~/$APP.new && mkdir -p ~/$APP.new && tar -xf - -C ~/$APP.new
-rm -rf ~/$APP.old && mv ~/$APP ~/$APP.old && mv ~/$APP.new ~/$APP
+# Keep the current folder as the fallback only if its deploy finished
+# (marker .deployed); after an interrupted deploy, keep the older fallback.
+if [ -f ~/$APP/.deployed ]; then rm -rf ~/$APP.old && mv ~/$APP ~/$APP.old; else rm -rf ~/$APP; fi
+mv ~/$APP.new ~/$APP
 cp ~/$APP.old/stderr.log ~/$APP/ 2>/dev/null || true
 source ~/nodevenv/$APP/22/bin/activate
 # Keep Prisma CLI steps within the thread cap of the host.
@@ -54,6 +57,8 @@ sleep 4
 curl -s -o /dev/null -w "https://app.biruh.org -> HTTP %{http_code}\n" https://app.biruh.org/
 ASSET=$(ls build/client/assets | grep "^entry.client" | head -1)
 curl -s -o /dev/null -w "scripts (/assets/$ASSET) -> HTTP %{http_code}\n" https://app.biruh.org/assets/$ASSET
+# Mark this deploy as finished, so the next one keeps it as the fallback.
+touch ~/$APP/.deployed
 ' < "$PKG"
 
 rm -f "$PKG"
