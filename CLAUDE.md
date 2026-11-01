@@ -121,7 +121,13 @@ Then: Organizations, Credentials, Moodle connector, App Store work
 (Shopify app billing for the $39/$149/$399 tiers, product-page purchase
 options extension, listing), per the plan doc.
 
-STOPPED 2026-11-01 21:13 UTC, do not start without Biruh: the app took the
+RUNNING AGAIN since 2026-11-02 with Biruh's OK, measured at 1 copy and 15
+threads under 5 parallel requests (account ~21-27 threads of 100), with
+Prisma capped in server.cjs. scripts/deploy-live.sh now installs with the
+app stopped and stops it again above 2 copies, 20 threads per copy or 60 on
+the account. History below.
+
+Was STOPPED 2026-11-01 21:13 UTC, do not start without Biruh: the app took the
 whole biruh.org account down (CloudLinux NPROC limit 100, which counts
 threads; one Passenger lsnode with Prisma = 44 threads; a stuck deploy filled
 the rest; biruh.org and Moodle sites returned 503 for over an hour). It was
