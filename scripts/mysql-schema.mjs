@@ -6,7 +6,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 // Fields longer than MySQL's default VARCHAR(191): a session's scope list
 // alone is over 300 characters.
-const LONG_TEXT = { Session: ["scope", "accessToken", "refreshToken"] };
+const LONG_TEXT = {
+  Session: ["scope", "accessToken", "refreshToken"],
+  MembershipPlan: ["seatTypes"],
+};
 
 const source = readFileSync("prisma/schema.prisma", "utf8");
 let schema = source.replace(

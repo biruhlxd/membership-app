@@ -48,6 +48,9 @@ model MembershipPlan {
   memberDiscount     Int?
   segmentId          String? // gid://shopify/Segment/...
   discountId         String? // gid://shopify/DiscountAutomaticNode/...
+  // Organization plans: JSON list of seat types [{ name, tag, seats }]
+  // (app/membership/organizations.ts). Null for a plan for one person.
+  seatTypes          String?
   tag                String
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
@@ -119,4 +122,37 @@ model EmailLog {
   createdAt    DateTime @default(now())
 
   @@unique([membershipId, kind, key])
+}
+
+// An organization: the customer who bought an organization plan, and the
+// seats they hand out. One per organization membership.
+model Organization {
+  id              String   @id @default(cuid())
+  shop            String
+  membershipId    String   @unique
+  adminCustomerId String // gid://shopify/Customer/...
+  createdAt       DateTime @default(now())
+  seats           Seat[]
+
+  @@index([shop, adminCustomerId])
+}
+
+// A seat in an organization: invited by email, then accepted by the customer
+// with that email. An ACTIVE seat gives its tag while the organization's
+// membership grants access.
+model Seat {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  tag            String // the seat type's tag
+  email          String // lower case
+  customerId     String? // set when accepted
+  status         String // INVITED, ACTIVE, ENDED
+  invitedAt      DateTime     @default(now())
+  acceptedAt     DateTime?
+  endedAt        DateTime?
+
+  @@index([organizationId, status])
+  @@index([email, status])
+  @@index([customerId, status])
 }
