@@ -84,6 +84,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       failedAttempts: m.failedAttempts,
       nextAttemptAt: m.nextAttemptAt?.toLocaleDateString("en-US", dateFormat) ?? null,
       since: m.createdAt.toLocaleDateString("en-US", dateFormat),
+      credentialIssue: m.credentialIssue,
       // Before lastPaidAt was stored: the latest paid renewal, else the
       // joining payment at purchase.
       lastPaid: (
@@ -215,6 +216,9 @@ export default function Members() {
                     )}
                     {m.accessEndsAt && (
                       <s-text color="subdued"> access until {m.accessEndsAt}</s-text>
+                    )}
+                    {m.credentialIssue && (
+                      <s-text tone="critical"> {m.credentialIssue}</s-text>
                     )}
                   </s-table-cell>
                   <s-table-cell>{m.since}</s-table-cell>

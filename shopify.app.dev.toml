@@ -48,6 +48,11 @@ api_version = "2026-10"
     "subscription_billing_attempts/challenged",
   ]
 
+  # Handled by: /app/routes/webhooks.customers.tsx (tags → credentials)
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers"
+  topics = [ "customers/update" ]
+
   # Mandatory compliance topics for public apps.
   # See: https://shopify.dev/docs/apps/build/privacy-law-compliance
   # Handled by: /app/routes/webhooks.compliance.tsx

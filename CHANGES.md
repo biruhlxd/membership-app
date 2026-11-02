@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Credentials (first version), Credentials page: credential types with a
+  code, validity in months (0 = no expiry) and requirements (customer tags
+  and/or an active membership plan; Moodle Bridge tags customers
+  "completed:<course>" when they finish a course, so completions count).
+  Customers who qualify get the credential at once, or wait for an approver
+  (queue with Approve / Reject). Issued credentials are numbered
+  CODE-YEAR-00001, may expire (checked on every renewal run), can be
+  revoked, and while active tag the customer "credential:<code>". A type can
+  hold renewals of chosen plans until the member's credential is active
+  again, or flag them on the Members page. Public verification page
+  /verify/<code> (credential, number, dates, first name and last initial).
+  Evaluated on customers/update (new webhook) and on contract changes.
+  Credentials are included in the privacy data request and deleted on
+  redact. MySQL migration 20261102210000_credentials.
+
 - Organizations (first version): a plan can have up to three seat types
   (name, tag, number of seats); whoever buys it is the organization admin.
   In the member portal the admin sees seats used per type, invites people

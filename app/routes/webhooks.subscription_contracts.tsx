@@ -3,6 +3,7 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { syncContract } from "../membership/contracts.server";
 import { refreshSchedule } from "../membership/renewals.server";
+import { evaluateCustomer } from "../membership/credentials.server";
 
 // Every subscription_contracts/* topic lands here. The payload only names the
 // contract; syncContract reads its current state from Shopify.
@@ -22,9 +23,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (result.synced) {
       const membership = await prisma.membership.findUnique({
         where: { shop_contractId: { shop, contractId } },
-        select: { id: true },
+        select: { id: true, customerId: true },
       });
-      if (membership) await refreshSchedule(admin, membership.id);
+      if (membership) {
+        await refreshSchedule(admin, membership.id);
+        // A plan can be a credential requirement: joining may complete one.
+        await evaluateCustomer(admin, shop, membership.customerId).catch((error) =>
+          console.error(`credentials for ${membership.customerId} on ${shop} failed:`, error),
+        );
+      }
     }
   } catch (error) {
     // A 500 makes Shopify retry the webhook later.

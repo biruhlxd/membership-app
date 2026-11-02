@@ -13,6 +13,7 @@ import { billingAttemptKey } from "./billing";
 import { syncContract } from "./contracts.server";
 import { notifyLapsed, notifyPaymentFailed, sendDueReminders } from "./emails.server";
 import { DEFAULT_DUNNING } from "./dunning";
+import { expireDue, renewalCheck } from "./credentials.server";
 import type { Admin } from "./plans.server";
 import {
   dueCycle,
@@ -299,6 +300,16 @@ export async function renewMembership(
   });
   if (pending > 0) return { charged: false, reason: "a charge is still in progress" };
 
+  // Credentials this plan checks at renewal: a lapsed one holds the charge
+  // (rule "block") or is only shown on the Members page (rule "flag").
+  const credentials = await renewalCheck(m.shop, m.customerId, m.planId);
+  if (credentials.issue !== m.credentialIssue) {
+    await prisma.membership.update({ where: { id: m.id }, data: { credentialIssue: credentials.issue } });
+  }
+  if (credentials.decision === "block") {
+    return { charged: false, reason: `renewal on hold: ${credentials.issue}` };
+  }
+
   // Normally only a cycle whose date has come. Early (Renew now): the next
   // unpaid cycle, whatever its date; Shopify bills a future cycle directly.
   const cycles = await upcomingCycles(admin, m.id, m.contractId);
@@ -391,6 +402,12 @@ export async function renewMembership(
 
 /** Charge every membership in a shop that is due now. */
 export async function runRenewals(admin: Admin, shop: string, now = new Date()) {
+  // Expire credentials first, so renewals below see which have lapsed.
+  try {
+    await expireDue(admin, shop, now);
+  } catch (error) {
+    console.error(`expiring credentials for ${shop} failed:`, error);
+  }
   const due = await prisma.membership.findMany({
     where: {
       shop,

@@ -9,6 +9,9 @@ import { readFileSync, writeFileSync } from "node:fs";
 const LONG_TEXT = {
   Session: ["scope", "accessToken", "refreshToken"],
   MembershipPlan: ["seatTypes"],
+  Membership: ["credentialIssue"],
+  CredentialType: ["requirements", "renewalPlanIds"],
+  Credential: ["note"],
 };
 
 const source = readFileSync("prisma/schema.prisma", "utf8");

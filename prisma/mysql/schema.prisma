@@ -82,6 +82,9 @@ model Membership {
   lastPaidAt        DateTime?
   // Set when the member cancels: access lasts until the paid period ends.
   accessEndsAt      DateTime?
+  // Set when a credential this plan checks at renewal has lapsed: why the
+  // renewal is on hold (rule block) or flagged (rule flag). Null when fine.
+  credentialIssue   String? @db.Text
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   billingAttempts   BillingAttempt[]
@@ -156,4 +159,48 @@ model Seat {
   @@index([organizationId, status])
   @@index([email, status])
   @@index([customerId, status])
+}
+
+// A credential members can earn, e.g. Coach Level 1 (code COACH1).
+// requirements and renewalPlanIds are JSON (app/membership/credentials.ts).
+model CredentialType {
+  id             String       @id @default(cuid())
+  shop           String
+  name           String
+  code           String
+  validityMonths Int          @default(0) // 0: never expires
+  requirements   String @db.Text
+  needsApproval  Boolean      @default(false)
+  renewalRule    String       @default("none") // none | flag | block
+  renewalPlanIds String @db.Text
+  nextSequence   Int          @default(1)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  credentials    Credential[]
+
+  @@unique([shop, code])
+}
+
+// One customer's credential. PENDING waits for an approver; ACTIVE ones have
+// a number and maybe an expiry. verifyCode is the public verification link.
+model Credential {
+  id         String         @id @default(cuid())
+  shop       String
+  typeId     String
+  type       CredentialType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  customerId String // gid://shopify/Customer/...
+  // Shown on the public verification page: first name and last initial only.
+  holderName String
+  status     String // PENDING, ACTIVE, REJECTED, EXPIRED, REVOKED
+  number     String?
+  verifyCode String         @unique
+  issuedAt   DateTime?
+  expiresAt  DateTime?
+  note       String? @db.Text
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@unique([shop, number])
+  @@index([shop, customerId])
+  @@index([status, expiresAt])
 }
