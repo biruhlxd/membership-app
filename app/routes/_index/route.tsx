@@ -1,10 +1,11 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { redirect, Form, useLoaderData } from "react-router";
-
-import { login } from "../../shopify.server";
+import { redirect } from "react-router";
 
 import styles from "./styles.module.css";
 
+// The app's public address. Opened from the Shopify admin it goes straight
+// into the app; there is no shop-domain form (Shopify installs start from the
+// App Store or the admin, never from a typed shop address).
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
 
@@ -12,12 +13,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
-  return { showForm: Boolean(login) };
+  return null;
 };
 
 export default function App() {
-  const { showForm } = useLoaderData<typeof loader>();
-
   return (
     <div className={styles.index}>
       <div className={styles.content}>
@@ -29,18 +28,6 @@ export default function App() {
           pricing and members-only products, and keep members in step with your
           learning platform.
         </p>
-        {showForm && (
-          <Form className={styles.form} method="post" action="/auth/login">
-            <label className={styles.label}>
-              <span>Shop domain</span>
-              <input className={styles.input} type="text" name="shop" />
-              <span>e.g: my-shop-domain.myshopify.com</span>
-            </label>
-            <button className={styles.button} type="submit">
-              Log in
-            </button>
-          </Form>
-        )}
         <ul className={styles.list}>
           <li>
             <strong>Memberships that renew</strong>. A joining price and a
@@ -55,7 +42,15 @@ export default function App() {
             <strong>A member portal</strong>. Members see their plan and next
             renewal, and can update their card or cancel, in their account.
           </li>
+          <li>
+            <strong>Organizations and credentials</strong>. Seats for
+            organizations, and credentials earned from courses and plans, with a
+            public verification page.
+          </li>
         </ul>
+        <p className={styles.text}>
+          Install from the Shopify App Store. <a href="/privacy">Privacy policy</a>
+        </p>
       </div>
     </div>
   );
