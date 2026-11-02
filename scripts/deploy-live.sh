@@ -36,7 +36,13 @@ tar --force-local -rf "$PKG" build
 REMOTE=$(cat <<'EOF'
 APP=biruh-membership
 threads() { ps -u biruhorg -L --no-headers | wc -l; }
-copies() { ps -u biruhorg -o pid=,nlwp=,args= | grep -E "lsnode|server.cjs" | grep -v grep; }
+# This app's Node processes (pid and thread count): those running from its
+# folder. Moodle Bridge runs on the same account; never count or stop it.
+copies() {
+  for p in $(pgrep -u biruhorg -f "lsnode|server.cjs"); do
+    [ "$(readlink /proc/$p/cwd 2>/dev/null)" = "$HOME/$APP" ] && echo "$p $(ps -o nlwp= -p $p | tr -d ' ')"
+  done
+}
 echo "before: $(ps -u biruhorg --no-headers | wc -l) processes, $(threads) threads"
 if [ "$(threads)" -gt 60 ]; then echo "ACCOUNT BUSY, nothing changed"; cat >/dev/null; exit 1; fi
 
