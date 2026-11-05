@@ -5,6 +5,7 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { listPlans } from "../membership/plans.server";
 import { parseTypeForm, requirementsFromJson, requirementsToJson } from "../membership/credentials";
+import { shopAppFeatures } from "../membership/appBilling.server";
 
 // Create (/app/credentials/new) or edit a credential type.
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -43,6 +44,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     renewalPlanIds: data.getAll("renewalPlanIds").map(String),
   });
   if (!parsed.ok) return { errors: parsed.errors };
+  // New credential types need Growth or Association; existing ones stay editable.
+  if (params.id === "new" && !(await shopAppFeatures(session.shop)).credentials) {
+    return { errors: { name: "Credentials are part of the Growth and Association app plans. Choose one on the App plan page." } };
+  }
   const value = parsed.value;
   const fields = {
     name: value.name,

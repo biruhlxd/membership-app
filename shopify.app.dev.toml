@@ -53,6 +53,11 @@ api_version = "2026-10"
   uri = "/webhooks/customers"
   topics = [ "customers/update" ]
 
+  # Handled by: /app/routes/webhooks.app.subscriptions_update.tsx (app plan changes)
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/subscriptions_update"
+  topics = [ "app_subscriptions/update" ]
+
   # Mandatory compliance topics for public apps.
   # See: https://shopify.dev/docs/apps/build/privacy-law-compliance
   # Handled by: /app/routes/webhooks.compliance.tsx

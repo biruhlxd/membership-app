@@ -203,3 +203,10 @@ model Credential {
   @@index([shop, customerId])
   @@index([status, expiresAt])
 }
+
+// The shop's Biruh Membership plan, as last reported by Shopify billing.
+model ShopAppPlan {
+  shop      String   @id
+  plan      String   @default("None")
+  updatedAt DateTime @updatedAt
+}

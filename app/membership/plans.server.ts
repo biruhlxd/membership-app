@@ -7,6 +7,7 @@
 import prisma from "../db.server";
 import { syncMembersOnly } from "./membersOnly.server";
 import { seatTypesFromJson, seatTypesToJson, type SeatType } from "./organizations";
+import { shopAppFeatures } from "./appBilling.server";
 import {
   memberDiscountInput,
   memberSegmentQuery,
@@ -166,6 +167,8 @@ export async function createPlan(
   variantIds?: string[],
 ): Promise<CreatePlanResult & { sellingPlanGroupId?: string }> {
   // Check before anything is made in Shopify.
+  const allowed = await planAllowed(shop, plan);
+  if (allowed) return { ok: false, error: allowed };
   if (await tagTaken(shop, plan.tag)) {
     return { ok: false, error: `Another plan already uses the tag "${plan.tag}".` };
   }
@@ -223,6 +226,20 @@ export async function createPlan(
     await syncMembersOnlyTags(admin, shop),
   );
   return warning ? { ok: true, warning, sellingPlanGroupId: groupId } : { ok: true, sellingPlanGroupId: groupId };
+}
+
+/**
+ * What the merchant's Biruh Membership plan allows (app/membership/appPlans.ts):
+ * a message when it doesn't allow this plan, else null. Only setting up is
+ * limited; members who already joined are never affected.
+ */
+async function planAllowed(shop: string, plan: PlanInput, existingSeats = false): Promise<string | null> {
+  const features = await shopAppFeatures(shop);
+  if (!features.plans) return "Choose an app plan on the App plan page to set up membership plans.";
+  if ((plan.seatTypes?.length ?? 0) > 0 && !existingSeats && !features.organizations) {
+    return "Organization seats are part of the Growth and Association app plans. Choose one on the App plan page.";
+  }
+  return null;
 }
 
 /** Tags are unique per shop, ignoring case as Shopify does. */
@@ -400,6 +417,9 @@ export async function updatePlan(
   if (!row.sellingPlanGroupId) {
     return { ok: false, error: "The plan was not found in Shopify." };
   }
+  // A plan that already had seats keeps them whatever the app plan.
+  const allowed = await planAllowed(shop, plan, seatTypesFromJson(row.seatTypes).length > 0);
+  if (allowed) return { ok: false, error: allowed };
 
   const tagChanged = row.tag.toLowerCase() !== plan.tag.toLowerCase();
   if (tagChanged) {

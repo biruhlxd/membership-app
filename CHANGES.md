@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- App billing (app/membership/appPlans.ts, Shopify manual pricing): Starter
+  $19 (up to 100 active members), Growth $59 (1,000; organization seats and
+  credentials), Association $149 (unlimited), every 30 days with a 14-day
+  trial; test charges on development stores. App plan page; plan stored per
+  shop (page loads and app_subscriptions/update). Limits only stop setting
+  up: membership plans need an app plan, seat plans and new credential
+  types need Growth or Association, and a warning shows above the member
+  limit. Renewals and access of members who already joined are never
+  affected. MySQL migration 20261105210000_shop_app_plan.
+
 - Order status page: a "Your membership" block with a link to the member
   portal, shown only for orders with a membership line (requirement 5.4.9).
 

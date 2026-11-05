@@ -5,11 +5,15 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
 import { authenticate } from "../shopify.server";
 import { ensureAppUrl } from "../membership/appUrl.server";
+import { refreshAppPlanSoon } from "../membership/appBilling.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const context = await authenticate.admin(request);
+  const { admin, session } = context;
   // Tell the member portal where this server is (once per process).
   await ensureAppUrl(admin, session.shop);
+  // Keep the stored app plan current (also kept by the app_subscriptions/update webhook).
+  await refreshAppPlanSoon(context);
 
   // eslint-disable-next-line no-undef
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };
@@ -26,6 +30,7 @@ export default function App() {
         <s-link href="/app/plans">Plans</s-link>
         <s-link href="/app/members-only">Members-only products</s-link>
         <s-link href="/app/credentials">Credentials</s-link>
+        <s-link href="/app/billing">App plan</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>

@@ -5,9 +5,8 @@ Draft listing text, and what Shopify's review checklist
 
 ## Still to do before submitting
 
-- **App billing (1.2.1):** the app charges merchants nothing yet. Either list
-  it as free or add Shopify billing (as Moodle Bridge does,
-  app/bridge/plans.ts there). Prices to decide.
+- Done 2026-11-05: app billing (1.2.1) with Starter, Growth and
+  Association plans and in-app plan changes (1.2.3); not yet deployed.
 - **Needs a check in a test store:** charge timing shown on the product page
   (5.4.10, the plan picker block shows prices), the selling plan name in the
   cart (5.4.16, theme), and currency handling (5.4.14).

@@ -68,6 +68,7 @@ export async function redactShop(shop: string) {
   await prisma.$transaction([
     prisma.credential.deleteMany({ where: { shop } }),
     prisma.credentialType.deleteMany({ where: { shop } }),
+    prisma.shopAppPlan.deleteMany({ where: { shop } }),
   ]);
   const [emails, attempts, memberships, plans, sessions] = await prisma.$transaction([
     prisma.emailLog.deleteMany({ where: { membershipId: { in: ids } } }),
