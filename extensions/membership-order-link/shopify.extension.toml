@@ -1,0 +1,15 @@
+# On the order status page of a membership order: a link to the member portal
+# (Shopify's subscription app requirement 5.4.9). Merchants place the block in
+# the checkout and accounts editor. Separate from member-portal because a
+# full-page extension can't have other targets.
+api_version = "2026-10"
+
+[[extensions]]
+name = "Membership link"
+handle = "membership-order-link"
+type = "ui_extension"
+uid = "a7904063-d49e-4bd5-98d5-8661f7627901a961ce7a"
+
+[[extensions.targeting]]
+module = "./src/OrderStatusLink.jsx"
+target = "customer-account.order-status.block.render"
