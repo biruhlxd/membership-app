@@ -1,7 +1,8 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
+import { logAccess } from "../membership/dataCrypto.server";
 import {
-  customerData,
   redactCustomer,
   redactShop,
 } from "../membership/privacy.server";
@@ -22,18 +23,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   switch (topic) {
     case "CUSTOMERS_DATA_REQUEST": {
       if (!customerId) break;
-      // TODO(emails): send this to the merchant; for now it is logged so the
-      // request can be answered by hand within Shopify's 30 days.
-      const data = await customerData(shop, customerId);
-      console.log(
-        `customers/data_request ${body.data_request?.id ?? ""} for ${shop}:`,
-        JSON.stringify(data),
-      );
+      // Saved for the merchant, who downloads the data on the Privacy requests
+      // page (never written to the app log: it holds personal data).
+      await prisma.dataRequest.upsert({
+        where: { shop_requestId: { shop, requestId: String(body.data_request?.id ?? `${customerId}-${Date.now()}`) } },
+        create: { shop, customerId: String(customerId), requestId: String(body.data_request?.id ?? `${customerId}-${Date.now()}`) },
+        update: {},
+      });
+      await logAccess(shop, "shopify:customers/data_request", "data request saved for the merchant", String(customerId));
       break;
     }
     case "CUSTOMERS_REDACT": {
       if (!customerId) break;
       const deleted = await redactCustomer(shop, customerId);
+      await logAccess(shop, "shopify:customers/redact", "customer data deleted", String(customerId));
       console.log(`customers/redact for ${shop}, customer ${customerId}:`, deleted);
       break;
     }

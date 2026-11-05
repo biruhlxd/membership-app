@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import prisma from "../db.server";
 import type { Admin } from "./plans.server";
 import { grantsAccess, type MembershipStatus } from "./status";
+import { sealField } from "./dataCrypto.server";
 import {
   credentialNumber,
   credentialTag,
@@ -82,7 +83,7 @@ export async function evaluateCustomer(admin: Admin, shop: string, customerId: s
         shop,
         typeId: type.id,
         customerId,
-        holderName: publicName(facts.firstName, facts.lastName),
+        holderName: sealField(publicName(facts.firstName, facts.lastName)),
         status: "PENDING",
         verifyCode: randomBytes(12).toString("base64url"),
       },

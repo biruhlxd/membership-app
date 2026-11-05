@@ -8,6 +8,7 @@
 // holder's first name and last initial for the public verification page).
 // No full names or card details are stored.
 import prisma from "../db.server";
+import { openField } from "./dataCrypto.server";
 
 const customerGid = (id: number | string) => `gid://shopify/Customer/${id}`;
 
@@ -42,7 +43,13 @@ export async function customerData(shop: string, customerId: number | string) {
     where: { shop, customerId: customerGid(customerId) },
     select: { number: true, status: true, holderName: true, issuedAt: true, expiresAt: true, type: { select: { name: true } } },
   });
-  return { shop, customerId: customerGid(customerId), memberships, emails, credentials };
+  return {
+    shop,
+    customerId: customerGid(customerId),
+    memberships,
+    emails: emails.map((e) => ({ ...e, to: openField(e.to) })),
+    credentials: credentials.map((c) => ({ ...c, holderName: openField(c.holderName) })),
+  };
 }
 
 /** Delete one customer's memberships, billing attempts and email records. */
@@ -69,6 +76,8 @@ export async function redactShop(shop: string) {
     prisma.credential.deleteMany({ where: { shop } }),
     prisma.credentialType.deleteMany({ where: { shop } }),
     prisma.shopAppPlan.deleteMany({ where: { shop } }),
+    prisma.accessLog.deleteMany({ where: { shop } }),
+    prisma.dataRequest.deleteMany({ where: { shop } }),
   ]);
   const [emails, attempts, memberships, plans, sessions] = await prisma.$transaction([
     prisma.emailLog.deleteMany({ where: { membershipId: { in: ids } } }),

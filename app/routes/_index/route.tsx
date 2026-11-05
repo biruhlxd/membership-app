@@ -49,7 +49,7 @@ export default function App() {
           </li>
         </ul>
         <p className={styles.text}>
-          Install from the Shopify App Store. <a href="/privacy">Privacy policy</a>
+          Install from the Shopify App Store. <a href="/privacy">Privacy policy</a> · <a href="/terms">Terms</a>
         </p>
       </div>
     </div>

@@ -11,7 +11,10 @@ const LONG_TEXT = {
   MembershipPlan: ["seatTypes"],
   Membership: ["credentialIssue"],
   CredentialType: ["requirements", "renewalPlanIds"],
-  Credential: ["note"],
+  // Encrypted personal fields (app/membership/dataCrypto.server.ts) are long.
+  Credential: ["note", "holderName"],
+  Seat: ["email"],
+  EmailLog: ["to"],
 };
 
 const source = readFileSync("prisma/schema.prisma", "utf8");

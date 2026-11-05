@@ -5,10 +5,12 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { issue, reject, revoke } from "../membership/credentials.server";
 import { requirementsFromJson } from "../membership/credentials";
+import { logAccess, openField } from "../membership/dataCrypto.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, sessionToken } = await authenticate.admin(request);
   const shop = session.shop;
+  await logAccess(shop, `staff:${sessionToken?.sub ?? "unknown"}`, "viewed credentials (holder names)", "credentials page");
   const [types, pending, recent] = await Promise.all([
     prisma.credentialType.findMany({
       where: { shop },
@@ -32,7 +34,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     id: c.id,
     type: c.type.name,
     customerId: c.customerId.replace("gid://shopify/Customer/", ""),
-    holderName: c.holderName,
+    holderName: openField(c.holderName),
     status: c.status,
     number: c.number,
     expiresAt: c.expiresAt?.toISOString() ?? null,

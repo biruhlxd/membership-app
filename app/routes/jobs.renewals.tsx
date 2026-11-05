@@ -2,6 +2,7 @@ import type { ActionFunctionArgs } from "react-router";
 import prisma from "../db.server";
 import { unauthenticated } from "../shopify.server";
 import { runRenewals } from "../membership/renewals.server";
+import { pruneAccessLog, sealLegacyData } from "../membership/dataCrypto.server";
 
 // POST /jobs/renewals — called by a scheduler (for example once an hour) with
 // "Authorization: Bearer <RENEWALS_JOB_SECRET>". Charges every due renewal in
@@ -17,6 +18,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     select: { shop: true },
     distinct: ["shop"],
   });
+  // Encrypt rows saved before encryption, and drop access log rows past 12 months.
+  await sealLegacyData().catch((error) => console.error("sealing old personal data failed:", error));
+  await pruneAccessLog().catch((error) => console.error("pruning the access log failed:", error));
   const summary: Record<string, number> = {};
   for (const { shop } of shops) {
     try {

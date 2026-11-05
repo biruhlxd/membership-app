@@ -8,6 +8,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { refreshSchedule, renewNow, runRenewals } from "../membership/renewals.server";
+import { logAccess } from "../membership/dataCrypto.server";
 
 const CUSTOMERS = `#graphql
   query membershipCustomers($ids: [ID!]!) {
@@ -27,8 +28,9 @@ const dateFormat: Intl.DateTimeFormatOptions = {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { admin, session, sessionToken } = await authenticate.admin(request);
   const where = { shop: session.shop };
+  await logAccess(session.shop, `staff:${sessionToken?.sub ?? "unknown"}`, "viewed members (names)", "members page");
 
   // Memberships from before the schedule was stored get it on first view.
   const missing = await prisma.membership.findMany({

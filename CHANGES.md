@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Data protection for Shopify's protected customer data review: email
+  addresses (sent-email records, seat invitations) and credential holder
+  names encrypted at rest with DATA_KEY (app/membership/dataCrypto.server.ts);
+  seats found by a keyed hash of the email; rows saved before are encrypted
+  by the renewals job. Access log of staff views of members and credentials,
+  data downloads and privacy requests (12 months). Data requests are saved
+  for the merchant to download on a new Privacy requests page instead of
+  being written to the app log. Terms of service with a data processing
+  agreement (/terms); docs/SECURITY.md. MySQL migration
+  20261105220000_pii_access_log. Needs DATA_KEY in the server settings.
+
 - App billing (app/membership/appPlans.ts, Shopify manual pricing): Starter
   $19 (up to 100 active members), Growth $59 (1,000; organization seats and
   credentials), Association $149 (unlimited), every 30 days with a 14-day

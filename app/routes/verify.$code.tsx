@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
 import prisma from "../db.server";
 import { verifyPage } from "../membership/verifyPage";
+import { openField } from "../membership/dataCrypto.server";
 import { unauthenticated } from "../shopify.server";
 
 const SHOP_NAME = `#graphql
@@ -34,7 +35,7 @@ export const loader = async ({ params }: LoaderFunctionArgs) => {
         ? {
             type: credential.type.name,
             number: credential.number,
-            holderName: credential.holderName,
+            holderName: openField(credential.holderName),
             status: credential.status,
             issuedAt: credential.issuedAt,
             expiresAt: credential.expiresAt,

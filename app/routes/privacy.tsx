@@ -24,7 +24,7 @@ const POLICY = `<!doctype html>
 <p>While the app is installed. Everything about a store is deleted when Shopify sends its shop deletion request (48 hours after uninstalling); a customer's data is deleted when Shopify sends a customer deletion request.</p>
 
 <h2>Where it is kept</h2>
-<p>On the app's server, hosted with the operator's web host, over encrypted connections (HTTPS).</p>
+<p>On the app's server, hosted with the operator's web host, over encrypted connections (HTTPS). Email addresses and names are stored encrypted, backups are encrypted, and every read of customer data is logged. See also the <a href="/terms#dpa">data processing agreement</a>.</p>
 
 <h2>Your rights</h2>
 <p>Members: ask the store you joined; it can request your data or its deletion through Shopify, and the app answers those requests. Merchants: write to <a href="mailto:biruh@biruh.org">biruh@biruh.org</a>.</p>

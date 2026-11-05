@@ -21,6 +21,7 @@ import {
   type EmailKind,
 } from "./emails";
 import type { Admin } from "./plans.server";
+import { sealField } from "./dataCrypto.server";
 
 const CONTEXT = `#graphql
   query membershipEmailContext($customerId: ID!) {
@@ -131,7 +132,7 @@ async function notify(
   });
   // Recorded before delivery: a crash after this can't send it twice.
   await prisma.emailLog.create({
-    data: { membershipId, kind, key, to, subject: email.subject, delivery: "PENDING" },
+    data: { membershipId, kind, key, to: sealField(to), subject: email.subject, delivery: "PENDING" },
   });
   const delivery = await deliver(to, email, {
     shopName: data.shop.name,
@@ -232,7 +233,7 @@ export async function notifySeatInvite(
       membershipId: organization.membershipId,
       kind: "SEAT_INVITE",
       key,
-      to: seat.email,
+      to: sealField(seat.email),
       subject: email.subject,
       delivery: "PENDING",
     },

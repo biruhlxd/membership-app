@@ -16,6 +16,7 @@ import {
 } from "./organizations";
 import type { Admin } from "./plans.server";
 import { grantsAccess, type MembershipStatus } from "./status";
+import { emailHash, openField, sealField } from "./dataCrypto.server";
 
 const CUSTOMER_EMAIL = `#graphql
   query membershipCustomerEmail($id: ID!) {
@@ -75,13 +76,13 @@ export async function portalState(admin: Admin, shop: string, customerId: string
       ),
       seats: organization.seats
         .filter((s) => s.status !== "ENDED")
-        .map((s) => ({ id: s.id, email: s.email, seatName: seatName(s.tag), status: s.status })),
+        .map((s) => ({ id: s.id, email: openField(s.email), seatName: seatName(s.tag), status: s.status })),
     });
   }
 
   const invited = email
     ? await prisma.seat.findMany({
-        where: { email, status: "INVITED", organization: { shop } },
+        where: { emailHash: emailHash(normalizeEmail(email)), status: "INVITED", organization: { shop } },
         select: { id: true, tag: true, organizationId: true },
       })
     : [];
@@ -126,7 +127,7 @@ export async function inviteToSeat(
   }
   const check = checkInvite(
     details.seatTypes,
-    details.organization.seats.map((s) => ({ tag: s.tag, status: s.status as SeatStatus, email: s.email })),
+    details.organization.seats.map((s) => ({ tag: s.tag, status: s.status as SeatStatus, email: openField(s.email) })),
     input.email,
     input.tag,
   );
@@ -136,20 +137,21 @@ export async function inviteToSeat(
     data: {
       organizationId: details.organization.id,
       tag: check.seatType.tag,
-      email: normalizeEmail(input.email),
+      email: sealField(normalizeEmail(input.email)),
+      emailHash: emailHash(normalizeEmail(input.email)),
       status: "INVITED",
     },
   });
   try {
     await notifySeatInvite(
       admin,
-      { id: seat.id, email: seat.email, seatName: check.seatType.name },
+      { id: seat.id, email: normalizeEmail(input.email), seatName: check.seatType.name },
       details.organization,
     );
   } catch (error) {
     console.error(`seat ${seat.id}: invitation email not sent:`, error);
   }
-  return { ok: true, message: `Invited ${seat.email} to a ${check.seatType.name} seat.` };
+  return { ok: true, message: `Invited ${normalizeEmail(input.email)} to a ${check.seatType.name} seat.` };
 }
 
 /** The organization admin ends a seat (or withdraws an invitation). */
@@ -168,7 +170,7 @@ export async function endSeat(
   }
   await prisma.seat.update({ where: { id: seat.id }, data: { status: "ENDED", endedAt: new Date() } });
   if (seat.customerId) await syncTagsForCustomer(admin, shop, seat.customerId);
-  return { ok: true, message: `${seat.email}'s seat has ended.` };
+  return { ok: true, message: `${openField(seat.email)}'s seat has ended.` };
 }
 
 /** The invited person accepts or declines; only the matching email can. */
@@ -184,7 +186,9 @@ export async function answerInvitation(
     return { ok: false, error: "This invitation is no longer open." };
   }
   const email = await emailOf(admin, customerId);
-  if (!email || email !== seat.email) {
+  // Seats saved before encryption have no hash yet; compare the address then.
+  const matches = email && (seat.emailHash ? emailHash(normalizeEmail(email)) === seat.emailHash : normalizeEmail(email) === openField(seat.email));
+  if (!matches) {
     return { ok: false, error: "This invitation was sent to a different email address." };
   }
   if (!accept) {

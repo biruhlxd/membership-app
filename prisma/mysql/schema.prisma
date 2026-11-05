@@ -120,7 +120,7 @@ model EmailLog {
   membershipId String
   kind         String // RENEWAL_REMINDER, PAYMENT_FAILED, LAPSED
   key          String // see emailKey in app/membership/emails.ts
-  to           String
+  to           String @db.Text
   subject      String
   delivery     String // LOGGED or SENT
   createdAt    DateTime @default(now())
@@ -149,7 +149,9 @@ model Seat {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   tag            String // the seat type's tag
-  email          String // lower case
+  email          String @db.Text // encrypted (dataCrypto.server.ts); lower case inside
+  // HMAC of the lower-case email, to find a person's invitations.
+  emailHash      String?
   customerId     String? // set when accepted
   status         String // INVITED, ACTIVE, ENDED
   invitedAt      DateTime     @default(now())
@@ -157,7 +159,7 @@ model Seat {
   endedAt        DateTime?
 
   @@index([organizationId, status])
-  @@index([email, status])
+  @@index([emailHash, status])
   @@index([customerId, status])
 }
 
@@ -190,7 +192,7 @@ model Credential {
   type       CredentialType @relation(fields: [typeId], references: [id], onDelete: Cascade)
   customerId String // gid://shopify/Customer/...
   // Shown on the public verification page: first name and last initial only.
-  holderName String
+  holderName String @db.Text
   status     String // PENDING, ACTIVE, REJECTED, EXPIRED, REVOKED
   number     String?
   verifyCode String         @unique
@@ -210,4 +212,31 @@ model ShopAppPlan {
   shop      String   @id
   plan      String   @default("None")
   updatedAt DateTime @updatedAt
+}
+
+// Every read of customer personal data and every privacy request. Kept 12
+// months (pruneAccessLog). See docs/SECURITY.md.
+model AccessLog {
+  id      String   @id @default(cuid())
+  shop    String
+  actor   String // staff:<user id>, system:<job> or shopify:<webhook>
+  action  String
+  subject String
+  at      DateTime @default(now())
+
+  @@index([shop, at])
+  @@index([at])
+}
+
+// A customers/data_request from Shopify, for the merchant to download on the
+// Privacy requests page (the data itself is read when downloaded).
+model DataRequest {
+  id           String    @id @default(cuid())
+  shop         String
+  requestId    String
+  customerId   String // numeric Shopify customer ID
+  receivedAt   DateTime  @default(now())
+  downloadedAt DateTime?
+
+  @@unique([shop, requestId])
 }

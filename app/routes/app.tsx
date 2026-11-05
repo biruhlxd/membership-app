@@ -30,6 +30,7 @@ export default function App() {
         <s-link href="/app/plans">Plans</s-link>
         <s-link href="/app/members-only">Members-only products</s-link>
         <s-link href="/app/credentials">Credentials</s-link>
+        <s-link href="/app/privacy-requests">Privacy requests</s-link>
         <s-link href="/app/billing">App plan</s-link>
       </s-app-nav>
       <Outlet />
