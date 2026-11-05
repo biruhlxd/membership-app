@@ -50,6 +50,12 @@ route answers 404 until `RENEWALS_JOB_SECRET` is set. In development, use
 
 ## Hosting
 
+
+**Shopify IP allowlist (required from 2026-11-20):** the app's Admin API
+calls are only accepted from the addresses in Dev Dashboard › app ›
+Settings › IP allowlist. biruh.org calls out from 192.250.229.92. Before
+moving the app to another server, add the new server's outbound address
+there first (check it on the server with curl -4 https://api.ipify.org).
 Production runs at `https://app.biruh.org` as a cPanel Node.js app (Node
 22+) with MySQL, on Biruh's shared hosting. Development keeps SQLite.
 
