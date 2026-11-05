@@ -11,6 +11,9 @@
 import nodemailer from "nodemailer";
 import prisma from "../db.server";
 import {
+  credentialExpiringEmail,
+  credentialIssuedEmail,
+  credentialPendingEmail,
   emailKey,
   lapsedEmail,
   paymentFailedEmail,
@@ -74,7 +77,8 @@ async function deliver(
 ): Promise<"LOGGED" | "SENT"> {
   const mailer = smtp();
   if (!mailer) {
-    console.log(`email (not sent, SMTP not set up) to ${to}: ${email.subject}\n${email.text}`);
+    // No addresses or email bodies in the log: they are personal data.
+    console.log(`email not sent (SMTP not set up): ${email.subject}`);
     return "LOGGED";
   }
   await mailer.sendMail({
@@ -84,7 +88,7 @@ async function deliver(
     subject: email.subject,
     text: email.text,
   });
-  console.log(`email sent to ${to}: ${email.subject}`);
+  console.log(`email sent: ${email.subject}`);
   return "SENT";
 }
 
@@ -243,5 +247,48 @@ export async function notifySeatInvite(
     replyTo: data.shop.contactEmail ?? null,
   });
   await prisma.emailLog.update({ where, data: { delivery } });
+  return true;
+}
+
+export type CredentialEmail = "PENDING" | "ISSUED" | "EXPIRING";
+
+const CREDENTIAL_SENT_FIELD = {
+  PENDING: "pendingEmailAt",
+  ISSUED: "issuedEmailAt",
+  EXPIRING: "expiringEmailAt",
+} as const;
+
+/**
+ * Email a credential's holder that it is being reviewed, was issued, or
+ * expires soon; each at most once (the time is recorded on the credential
+ * before sending). Returns false when already sent or there is no address.
+ */
+export async function notifyCredential(admin: Admin, credentialId: string, kind: CredentialEmail): Promise<boolean> {
+  const field = CREDENTIAL_SENT_FIELD[kind];
+  // Claim the email first: two runs at once can't both send it.
+  const claimed = await prisma.credential.updateMany({
+    where: { id: credentialId, [field]: null },
+    data: { [field]: new Date() },
+  });
+  if (claimed.count !== 1) return false;
+  const credential = await prisma.credential.findUniqueOrThrow({ where: { id: credentialId }, include: { type: true } });
+  const data = (
+    await (await admin.graphql(CONTEXT, { variables: { customerId: credential.customerId } })).json()
+  ).data;
+  const to: string | undefined = data?.customer?.defaultEmailAddress?.emailAddress;
+  if (!to) return false;
+  const base = { shopName: data.shop.name, firstName: data.customer.firstName ?? null, typeName: credential.type.name };
+  const email =
+    kind === "PENDING"
+      ? credentialPendingEmail(base)
+      : kind === "ISSUED"
+        ? credentialIssuedEmail({
+            ...base,
+            number: credential.number ?? "",
+            expiresAt: credential.expiresAt,
+            verifyUrl: `${process.env.SHOPIFY_APP_URL ?? ""}/verify/${credential.verifyCode}`,
+          })
+        : credentialExpiringEmail({ ...base, number: credential.number ?? "", expiresAt: credential.expiresAt! });
+  await deliver(to, email, { shopName: data.shop.name, replyTo: data.shop.contactEmail ?? null });
   return true;
 }

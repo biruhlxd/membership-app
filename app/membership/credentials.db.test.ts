@@ -1,5 +1,17 @@
 import { fakeAdmin, testPrisma as prisma } from "../test/db";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Never send real email from tests: the app would load SMTP settings from .env.
+const sent = vi.hoisted(() => [] as { to: string; subject: string }[]);
+vi.mock("nodemailer", () => ({
+  default: {
+    createTransport: () => ({
+      sendMail: async (m: { to: string; subject: string }) => {
+        sent.push({ to: m.to, subject: m.subject });
+      },
+    }),
+  },
+}));
 import { evaluateCustomer, expireDue, issue, renewalCheck } from "./credentials.server";
 import { emailHash, openField, sealLegacyData } from "./dataCrypto.server";
 import { createPlan } from "./plans.server";
@@ -11,12 +23,20 @@ const ANA = "gid://shopify/Customer/77";
 const BEN = "gid://shopify/Customer/78";
 const YEAR = new Date().getUTCFullYear();
 
-const shopify = () => fakeAdmin(() => ({ data: { tagsAdd: { userErrors: [] }, tagsRemove: { userErrors: [] } } }));
+process.env.SMTP_HOST = "smtp.test.invalid";
+process.env.EMAIL_FROM = "membership@test.invalid";
+const shopify = () =>
+  fakeAdmin((query) =>
+    query.includes("membershipEmailContext")
+      ? { data: { shop: { name: "USSEA", contactEmail: null }, customer: { firstName: "Ana", defaultEmailAddress: { emailAddress: "ana@example.com" } } } }
+      : { data: { tagsAdd: { userErrors: [] }, tagsRemove: { userErrors: [] } } },
+  );
 const facts = (tags: string[]) => ({ tags, firstName: "Ana", lastName: "bekele" });
 
 let planId = "";
 
 beforeEach(async () => {
+  sent.length = 0;
   for (const table of ["credential", "credentialType", "seat", "organization", "emailLog", "membership", "membershipPlan", "shopAppPlan"] as const) {
     await (prisma[table] as unknown as { deleteMany: () => Promise<unknown> }).deleteMany();
   }
@@ -50,7 +70,8 @@ describe("earning credentials", () => {
     expect(credential.holderName.startsWith("v1.")).toBe(true);
     expect(openField(credential.holderName)).toBe("Ana B.");
     expect(credential.expiresAt).not.toBeNull();
-    expect(calls.at(-1)?.variables).toEqual({ id: ANA, tags: ["credential:coach1"] });
+    expect(calls.find((c) => c.query.includes("tagsAdd"))?.variables).toEqual({ id: ANA, tags: ["credential:coach1"] });
+    expect(sent.at(-1)).toEqual({ to: "ana@example.com", subject: "Your Coach Level 1 credential" });
 
     expect(await evaluateCustomer(admin, SHOP, ANA, facts(["completed:coach101"]))).toEqual([]);
     expect(await prisma.credential.count()).toBe(1);
@@ -90,7 +111,7 @@ describe("expiry and renewals", () => {
     const twoMonths = new Date(Date.now() + 62 * 24 * 60 * 60 * 1000);
     expect(await expireDue(admin, SHOP, twoMonths)).toBe(1);
     expect((await prisma.credential.findFirstOrThrow()).status).toBe("EXPIRED");
-    expect(calls.at(-1)?.query).toContain("tagsRemove");
+    expect(calls.some((c) => c.query.includes("tagsRemove"))).toBe(true);
   });
 
   it("holds or flags a renewal when the credential isn't active", async () => {
@@ -152,5 +173,33 @@ describe("app plan limits", () => {
     const result = await createPlan(untouched.admin, SHOP, { ...plan, seatTypes: [{ name: "Staff", tag: "staff", seats: 5 }] });
     expect(!result.ok && result.error).toMatch(/Growth/);
     expect(untouched.calls).toHaveLength(0);
+  });
+});
+
+describe("earning again", () => {
+  it("after expiry goes to the approver; after a rejection it doesn't start again", async () => {
+    await coachType({ validityMonths: 1 });
+    const { admin } = shopify();
+    await evaluateCustomer(admin, SHOP, ANA, facts(["completed:coach101"]));
+    await expireDue(admin, SHOP, new Date(Date.now() + 62 * 24 * 60 * 60 * 1000));
+    expect(await evaluateCustomer(admin, SHOP, ANA, facts(["completed:coach101"]))).toEqual(["COACH1"]);
+    const renewal = await prisma.credential.findFirstOrThrow({ where: { status: "PENDING" } });
+    expect(sent.at(-1)?.subject).toBe("Your Coach Level 1 credential is being reviewed");
+    expect(await evaluateCustomer(admin, SHOP, ANA, facts(["completed:coach101"]))).toEqual([]);
+
+    await prisma.credential.update({ where: { id: renewal.id }, data: { status: "REJECTED" } });
+    expect(await evaluateCustomer(admin, SHOP, ANA, facts(["completed:coach101"]))).toEqual([]);
+  });
+});
+
+describe("expiry emails", () => {
+  it("go once, within 30 days of expiry", async () => {
+    await coachType({ validityMonths: 1 });
+    const { admin } = shopify();
+    await evaluateCustomer(admin, SHOP, ANA, facts(["completed:coach101"]));
+    sent.length = 0;
+    await expireDue(admin, SHOP, new Date());
+    await expireDue(admin, SHOP, new Date());
+    expect(sent.map((m) => m.subject)).toEqual([expect.stringMatching(/^Your Coach Level 1 credential expires on /)]);
   });
 });

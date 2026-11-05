@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Credential emails: waiting for review, issued (number, expiry, verification
+  link) and expiring in 30 days, each sent once (times on the credential).
+  An expired credential is earned again only through the approver; a
+  rejected or revoked one is not started again. Emails no longer write the
+  address or body to the app log. MySQL migration
+  20261106000000_credential_emails.
+- Database tests (temporary SQLite from the migrations) for credentials,
+  renewal holds, encrypting old rows and app plan limits; mail is faked.
+
 - Data protection for Shopify's protected customer data review: email
   addresses (sent-email records, seat invitations) and credential holder
   names encrypted at rest with DATA_KEY (app/membership/dataCrypto.server.ts);

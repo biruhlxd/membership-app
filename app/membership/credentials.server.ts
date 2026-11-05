@@ -6,6 +6,8 @@ import prisma from "../db.server";
 import type { Admin } from "./plans.server";
 import { grantsAccess, type MembershipStatus } from "./status";
 import { sealField } from "./dataCrypto.server";
+import { notifyCredential, type CredentialEmail } from "./emails.server";
+import { CREDENTIAL_EXPIRY_LEAD_DAYS } from "./emails";
 import {
   credentialNumber,
   credentialTag,
@@ -62,8 +64,11 @@ async function activePlanIds(shop: string, customerId: string): Promise<string[]
 /**
  * Check every credential type for one customer and start the ones they now
  * qualify for: PENDING when the type needs approval, otherwise issued at
- * once. A credential already pending or active is left alone; one that
- * expired, was rejected or revoked can be earned again.
+ * once. Requirements such as a completed course stay true for ever, so:
+ * - a credential pending or active is left alone;
+ * - one that EXPIRED is earned again only through the approver (renewal is a
+ *   staff decision, not automatic);
+ * - one that was REJECTED or REVOKED is not started again (the decision stands).
  */
 export async function evaluateCustomer(admin: Admin, shop: string, customerId: string, known?: CustomerFacts) {
   const types = await prisma.credentialType.findMany({ where: { shop } });
@@ -74,10 +79,11 @@ export async function evaluateCustomer(admin: Admin, shop: string, customerId: s
   const started: string[] = [];
   for (const type of types) {
     if (!requirementsMet(requirementsFromJson(type.requirements), { tags: facts.tags, planIds })) continue;
-    const current = await prisma.credential.findFirst({
-      where: { shop, typeId: type.id, customerId, status: { in: ["PENDING", "ACTIVE"] } },
+    const latest = await prisma.credential.findFirst({
+      where: { shop, typeId: type.id, customerId },
+      orderBy: { createdAt: "desc" },
     });
-    if (current) continue;
+    if (latest && latest.status !== "EXPIRED") continue;
     const credential = await prisma.credential.create({
       data: {
         shop,
@@ -88,10 +94,23 @@ export async function evaluateCustomer(admin: Admin, shop: string, customerId: s
         verifyCode: randomBytes(12).toString("base64url"),
       },
     });
-    if (!type.needsApproval) await issue(admin, shop, credential.id);
+    if (type.needsApproval || latest) {
+      await sendCredentialEmail(admin, credential.id, "PENDING");
+    } else {
+      await issue(admin, shop, credential.id);
+    }
     started.push(type.code);
   }
   return started;
+}
+
+/** Credential emails never stop the work they report on. */
+async function sendCredentialEmail(admin: Admin, credentialId: string, kind: CredentialEmail) {
+  try {
+    await notifyCredential(admin, credentialId, kind);
+  } catch (error) {
+    console.error(`credential ${credentialId}: ${kind} email not sent:`, error);
+  }
 }
 
 /** Give a pending credential its number and dates, and tag the customer. */
@@ -115,7 +134,10 @@ export async function issue(admin: Admin, shop: string, credentialId: string, no
       include: { type: true },
     });
   });
-  if (issued) await setTag(admin, issued.customerId, credentialTag(issued.type.code), true);
+  if (issued) {
+    await setTag(admin, issued.customerId, credentialTag(issued.type.code), true);
+    await sendCredentialEmail(admin, issued.id, "ISSUED");
+  }
   return issued;
 }
 
@@ -144,6 +166,17 @@ export async function expireDue(admin: Admin, shop: string, now = new Date()) {
     await prisma.credential.update({ where: { id: credential.id }, data: { status: "EXPIRED" } });
     await dropTagIfNoneLeft(admin, shop, credential.customerId, credential.typeId, credential.type.code);
   }
+  // Tell holders whose credential expires within the lead time (once each).
+  const soon = await prisma.credential.findMany({
+    where: {
+      shop,
+      status: "ACTIVE",
+      expiringEmailAt: null,
+      expiresAt: { gt: now, lte: new Date(now.getTime() + CREDENTIAL_EXPIRY_LEAD_DAYS * 24 * 60 * 60 * 1000) },
+    },
+    select: { id: true },
+  });
+  for (const credential of soon) await sendCredentialEmail(admin, credential.id, "EXPIRING");
   return due.length;
 }
 

@@ -114,6 +114,78 @@ export function lapsedEmail(p: {
   };
 }
 
+/** Days before a credential expires that the member is told. */
+export const CREDENTIAL_EXPIRY_LEAD_DAYS = 30;
+
+const longDay = (d: Date) =>
+  d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+
+/** Whether the "expires soon" email is due: within the lead time, and not yet expired. */
+export function credentialExpiryDue(expiresAt: Date | null, now: Date, leadDays = CREDENTIAL_EXPIRY_LEAD_DAYS): boolean {
+  if (!expiresAt) return false;
+  const until = expiresAt.getTime() - now.getTime();
+  return until > 0 && until <= leadDays * DAY_MS;
+}
+
+export function credentialIssuedEmail(p: {
+  shopName: string;
+  firstName: string | null;
+  typeName: string;
+  number: string;
+  expiresAt: Date | null;
+  verifyUrl: string;
+}): EmailContent {
+  return {
+    subject: `Your ${p.typeName} credential`,
+    text: [
+      greeting(p.firstName),
+      "",
+      `You now hold the ${p.typeName} credential from ${p.shopName}.`,
+      "",
+      `Number: ${p.number}`,
+      p.expiresAt ? `Valid until: ${longDay(p.expiresAt)}` : "Valid with no expiry date.",
+      "",
+      `Anyone you share this link with can check it: ${p.verifyUrl}`,
+      "",
+      p.shopName,
+    ].join("\n"),
+  };
+}
+
+export function credentialPendingEmail(p: { shopName: string; firstName: string | null; typeName: string }): EmailContent {
+  return {
+    subject: `Your ${p.typeName} credential is being reviewed`,
+    text: [
+      greeting(p.firstName),
+      "",
+      `You meet the requirements for the ${p.typeName} credential from ${p.shopName}. It is being reviewed, and you'll get another email when it's issued.`,
+      "",
+      p.shopName,
+    ].join("\n"),
+  };
+}
+
+export function credentialExpiringEmail(p: {
+  shopName: string;
+  firstName: string | null;
+  typeName: string;
+  number: string;
+  expiresAt: Date;
+}): EmailContent {
+  return {
+    subject: `Your ${p.typeName} credential expires on ${longDay(p.expiresAt)}`,
+    text: [
+      greeting(p.firstName),
+      "",
+      `Your ${p.typeName} credential (${p.number}) from ${p.shopName} expires on ${longDay(p.expiresAt)}.`,
+      "",
+      `To keep it, contact ${p.shopName} about renewing it before then.`,
+      "",
+      p.shopName,
+    ].join("\n"),
+  };
+}
+
 export function seatInviteEmail(p: {
   shopName: string;
   inviterName: string | null;
