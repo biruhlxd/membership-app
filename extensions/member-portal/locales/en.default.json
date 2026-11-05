@@ -42,5 +42,10 @@
     "inviteSeat": "Seat type",
     "seatOption": "{{seat}} ({{left}} left)",
     "invite": "Send invitation"
+  },
+  "orderStatus": {
+    "heading": "Your membership",
+    "body": "See your plan and next renewal, update your card or cancel in your account.",
+    "link": "Manage your membership"
   }
 }

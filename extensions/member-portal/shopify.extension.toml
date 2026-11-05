@@ -20,3 +20,10 @@ api_access = true
 # seats. Needs Shopify's approval: Partner Dashboard > API access requests >
 # "Allow network access in checkout and account UI extensions".
 network_access = true
+
+# On the order status page of a membership order: a link to the portal above
+# (Shopify's subscription app requirement 5.4.9). Merchants place the block
+# in the checkout and accounts editor.
+[[extensions.targeting]]
+module = "./src/OrderStatusLink.jsx"
+target = "customer-account.order-status.block.render"

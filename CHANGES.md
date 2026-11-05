@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Order status page: a "Your membership" block with a link to the member
+  portal, shown only for orders with a membership line (requirement 5.4.9).
+
 - Membership plans from the Shopify product page (Shopify's subscription
   app requirement 5.4.6): the Purchase options card on a product or variant
   opens a "Membership plan" form (extensions/purchase-options) to create a
