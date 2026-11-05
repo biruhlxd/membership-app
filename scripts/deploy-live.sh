@@ -73,7 +73,13 @@ cp ~/nodevenv/$APP/22/lib/node_modules/.prisma/client/libquery_engine-debian-ope
 
 cloudlinux-selector start --json --interpreter nodejs --app-root $APP >/dev/null
 sleep 2
-curl -s -o /dev/null -w "https://app.biruh.org -> HTTP %{http_code}\n" https://app.biruh.org/
+# A cold start can take some seconds: ask again for up to 30 seconds.
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" https://app.biruh.org/)
+  case "$CODE" in 2*|3*) break ;; esac
+  sleep 3
+done
+echo "https://app.biruh.org -> HTTP $CODE"
 for i in 1 2 3 4 5; do curl -s -o /dev/null https://app.biruh.org/ & done; wait
 sleep 3
 COPIES=$(copies | wc -l); MAXT=$(copies | awk 'BEGIN{m=0}{if($2>m)m=$2}END{print m}'); TOTAL=$(threads)
