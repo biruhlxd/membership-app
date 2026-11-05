@@ -110,14 +110,17 @@ async function prepareProduct(
   admin: Admin,
   productId: string,
   joiningPrice: number,
+  onlyVariantIds?: string[],
 ): Promise<string | undefined> {
   try {
     const product = (
       await (await admin.graphql(PRODUCT, { variables: { id: productId } })).json()
     ).data?.product;
-    const variantIds: string[] = (product?.variants?.nodes ?? []).map(
-      (v: { id: string }) => v.id,
-    );
+    // A plan for some variants only prices those, and leaves one-time
+    // purchase on for the rest of the product.
+    const variantIds: string[] = onlyVariantIds?.length
+      ? onlyVariantIds
+      : (product?.variants?.nodes ?? []).map((v: { id: string }) => v.id);
     const problems: string[] = [];
 
     if (variantIds.length > 0) {
@@ -136,7 +139,7 @@ async function prepareProduct(
       }
     }
 
-    if (!product?.requiresSellingPlan) {
+    if (!onlyVariantIds?.length && !product?.requiresSellingPlan) {
       const required = (
         await (
           await admin.graphql(REQUIRE_PLAN, { variables: { id: productId } })
@@ -158,7 +161,10 @@ export async function createPlan(
   admin: Admin,
   shop: string,
   plan: PlanInput,
-): Promise<CreatePlanResult> {
+  // From the product page's purchase options card on a variant: the plan is
+  // offered on these variants only, not the whole product.
+  variantIds?: string[],
+): Promise<CreatePlanResult & { sellingPlanGroupId?: string }> {
   // Check before anything is made in Shopify.
   if (await tagTaken(shop, plan.tag)) {
     return { ok: false, error: `Another plan already uses the tag "${plan.tag}".` };
@@ -169,7 +175,7 @@ export async function createPlan(
     const response = await admin.graphql(CREATE_GROUP, {
       variables: {
         input: sellingPlanGroupInput(plan),
-        resources: { productIds: [plan.productId] },
+        resources: variantIds?.length ? { productVariantIds: variantIds } : { productIds: [plan.productId] },
       },
     });
     result = (await response.json()).data?.sellingPlanGroupCreate;
@@ -210,13 +216,13 @@ export async function createPlan(
     return { ok: false, error: "The plan could not be saved. Try again." };
   }
   const warning = joinWarnings(
-    await prepareProduct(admin, plan.productId, plan.joiningPrice),
+    await prepareProduct(admin, plan.productId, plan.joiningPrice, variantIds),
     plan.memberDiscount
       ? await syncMemberPricing(admin, created.id, plan.memberDiscount)
       : undefined,
     await syncMembersOnlyTags(admin, shop),
   );
-  return warning ? { ok: true, warning } : { ok: true };
+  return warning ? { ok: true, warning, sellingPlanGroupId: groupId } : { ok: true, sellingPlanGroupId: groupId };
 }
 
 /** Tags are unique per shop, ignoring case as Shopify does. */

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Membership plans from the Shopify product page (Shopify's subscription
+  app requirement 5.4.6): the Purchase options card on a product or variant
+  opens a "Membership plan" form (extensions/purchase-options) to create a
+  plan or edit one this app made; the app's server does it as the Plans page
+  does (/api/purchase-options). A plan made on a variant is offered on that
+  variant only and leaves one-time purchase on for the rest (5.4.19).
+
 - Credentials (first version), Credentials page: credential types with a
   code, validity in months (0 = no expiry) and requirements (customer tags
   and/or an active membership plan; Moodle Bridge tags customers
