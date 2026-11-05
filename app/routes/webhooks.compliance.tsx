@@ -16,7 +16,7 @@ type CompliancePayload = {
 // customers/data_request, customers/redact and shop/redact. authenticate.webhook
 // checks Shopify's signature and answers 401 to anything else, as review requires.
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, topic, payload } = await authenticate.webhook(request);
+  const { shop, topic, payload, webhookId } = await authenticate.webhook(request);
   const body = payload as CompliancePayload;
   const customerId = body.customer?.id;
 
@@ -24,10 +24,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     case "CUSTOMERS_DATA_REQUEST": {
       if (!customerId) break;
       // Saved for the merchant, who downloads the data on the Privacy requests
-      // page (never written to the app log: it holds personal data).
+      // page (never written to the app log: it holds personal data). Shopify's
+      // request ID, else the webhook's, which stays the same when Shopify resends it.
+      const requestId = String(body.data_request?.id ?? webhookId);
       await prisma.dataRequest.upsert({
-        where: { shop_requestId: { shop, requestId: String(body.data_request?.id ?? `${customerId}-${Date.now()}`) } },
-        create: { shop, customerId: String(customerId), requestId: String(body.data_request?.id ?? `${customerId}-${Date.now()}`) },
+        where: { shop_requestId: { shop, requestId } },
+        create: { shop, customerId: String(customerId), requestId },
         update: {},
       });
       await logAccess(shop, "shopify:customers/data_request", "data request saved for the merchant", String(customerId));
