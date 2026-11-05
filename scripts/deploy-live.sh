@@ -40,6 +40,9 @@ threads() { ps -u biruhorg -L --no-headers | wc -l; }
 # folder. Moodle Bridge runs on the same account; never count or stop it.
 copies() {
   for p in $(pgrep -u biruhorg -f "lsnode|server.cjs"); do
+    # Node only: this script's own shell also runs from the app folder and its
+    # command line contains the search words.
+    case "$(ps -o comm= -p $p 2>/dev/null)" in bash|sh|pgrep|ps|grep) continue ;; esac
     [ "$(readlink /proc/$p/cwd 2>/dev/null)" = "$HOME/$APP" ] && echo "$p $(ps -o nlwp= -p $p | tr -d ' ')"
   done
 }
