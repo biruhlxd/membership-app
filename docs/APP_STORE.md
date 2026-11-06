@@ -26,7 +26,11 @@ Still to check by hand in a test store before submitting:
 - 5.4.16: the plan name shows in the cart (Dawn shows it; note any theme
   that doesn't).
 - 1.2.2: billing approve, decline, reinstall, and switching plans.
-- 3.1.1: the certificate for app.biruh.org is valid (AutoSSL).
+
+Checked 2026-11-06: 3.1.1, the app.biruh.org certificate is Let's Encrypt
+(cPanel AutoSSL renews it) and plain HTTP redirects to HTTPS (a rewrite in
+~/app.biruh.org/.htaccess, after the CloudLinux Passenger block). A backup
+from that day restored cleanly with the same rows as live.
 
 ## Listing
 
