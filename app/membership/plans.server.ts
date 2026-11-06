@@ -9,6 +9,7 @@ import { syncMembersOnly } from "./membersOnly.server";
 import { seatTypesFromJson, seatTypesToJson, type SeatType } from "./organizations";
 import { shopAppFeatures } from "./appBilling.server";
 import {
+  cadenceFixInput,
   memberDiscountInput,
   memberSegmentQuery,
   planFromShopify,
@@ -18,6 +19,7 @@ import {
   variantPriceInputs,
   type PlanInput,
   type PlanTerms,
+  type ShopifyPlanOptions,
   type ShopifySellingPlan,
 } from "./plan";
 
@@ -323,6 +325,69 @@ const UPDATE_GROUP = `#graphql
       }
     }
   }`;
+
+const PLAN_OPTIONS = `#graphql
+  query membershipPlanOptions($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      ... on SellingPlanGroup {
+        id
+        options
+        sellingPlans(first: 1) {
+          nodes {
+            id
+            options
+            billingPolicy {
+              ... on SellingPlanRecurringBillingPolicy {
+                interval
+                intervalCount
+              }
+            }
+          }
+        }
+      }
+    }
+  }`;
+
+/**
+ * Give plans made before the storefront showed the renewal period their
+ * period as the selling plan option ("Every year"), so the plan picker can
+ * say how often the renewal charge comes. Labels only; prices are untouched.
+ * Returns how many plans were changed. Errors are logged, never thrown: the
+ * picker still works without it.
+ */
+export async function refreshPlanCadences(admin: Admin, shop: string): Promise<number> {
+  const groupIds = (
+    await prisma.membershipPlan.findMany({
+      where: { shop, sellingPlanGroupId: { not: null } },
+      select: { sellingPlanGroupId: true },
+      take: 250,
+    })
+  ).map((p) => p.sellingPlanGroupId as string);
+  if (groupIds.length === 0) return 0;
+
+  let changed = 0;
+  try {
+    const nodes: ({ id: string } & ShopifyPlanOptions)[] = (
+      (await (await admin.graphql(PLAN_OPTIONS, { variables: { ids: groupIds } })).json()).data
+        ?.nodes ?? []
+    ).filter(Boolean);
+    for (const group of nodes) {
+      const input = cadenceFixInput(group);
+      if (!input) continue;
+      const errors = (
+        await (await admin.graphql(UPDATE_GROUP, { variables: { id: group.id, input } })).json()
+      ).data?.sellingPlanGroupUpdate?.userErrors;
+      if (errors?.length) {
+        console.error(`plan period label for ${group.id} on ${shop}:`, JSON.stringify(errors));
+      } else {
+        changed++;
+      }
+    }
+  } catch (error) {
+    console.error(`plan period labels on ${shop} failed:`, error);
+  }
+  return changed;
+}
 
 export interface EditablePlan {
   id: string;

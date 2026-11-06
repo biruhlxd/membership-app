@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  cadenceFixInput,
   parsePlanForm,
   planFromShopify,
   renewalCadence,
@@ -135,6 +136,37 @@ describe("renewalCadence", () => {
     expect(renewalCadence({ interval: "YEAR", intervalCount: 2 })).toBe("Every 2 years");
     expect(renewalCadence({ interval: "MONTH", intervalCount: 1 })).toBe("Every month");
     expect(renewalCadence({ interval: "MONTH", intervalCount: 6 })).toBe("Every 6 months");
+  });
+});
+
+describe("cadenceFixInput", () => {
+  const group = (groupOptions: string[], planOptions: string[], interval = "YEAR", intervalCount = 1) => ({
+    options: groupOptions,
+    sellingPlans: {
+      nodes: [{ id: "gid://shopify/SellingPlan/9", options: planOptions, billingPolicy: { interval, intervalCount } }],
+    },
+  });
+
+  it("labels an older plan with its period, changing nothing else", () => {
+    expect(cadenceFixInput(group(["Membership"], ["Coach membership"], "MONTH", 6))).toEqual({
+      options: ["Renews"],
+      sellingPlansToUpdate: [{ id: "gid://shopify/SellingPlan/9", options: ["Every 6 months"] }],
+    });
+  });
+
+  it("leaves a plan that already has its period alone", () => {
+    expect(cadenceFixInput(group(["Renews"], ["Every year"]))).toBeNull();
+  });
+
+  it("fixes a period label that no longer matches the billing period", () => {
+    expect(cadenceFixInput(group(["Renews"], ["Every year"], "YEAR", 2))?.sellingPlansToUpdate[0].options).toEqual([
+      "Every 2 years",
+    ]);
+  });
+
+  it("leaves plans this app didn't make alone", () => {
+    expect(cadenceFixInput(group(["Delivery"], ["Weekly"], "WEEK", 1))).toBeNull();
+    expect(cadenceFixInput({ options: ["Renews"], sellingPlans: { nodes: [] } })).toBeNull();
   });
 });
 

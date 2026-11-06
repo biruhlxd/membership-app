@@ -4,11 +4,13 @@ import { useLoaderData, useSearchParams } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
-import { listPlans } from "../membership/plans.server";
+import { listPlans, refreshPlanCadences } from "../membership/plans.server";
 import { seatTypesFromJson } from "../membership/organizations";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
+  // Plans made before the picker showed the renewal period get it now.
+  await refreshPlanCadences(admin, session.shop);
   const plans = await listPlans(session.shop);
   return {
     // Formatted on the server so the page renders the same in every browser.

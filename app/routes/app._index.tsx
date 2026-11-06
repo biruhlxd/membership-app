@@ -3,10 +3,13 @@ import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
+import { refreshPlanCadences } from "../membership/plans.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
+  // Plans made before the picker showed the renewal period get it now.
+  await refreshPlanCadences(admin, shop);
   const [plans, active, pastDue] = await Promise.all([
     prisma.membershipPlan.count({ where: { shop } }),
     prisma.membership.count({ where: { shop, status: "ACTIVE" } }),

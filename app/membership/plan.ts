@@ -129,8 +129,11 @@ export function sellingPlanGroupUpdateInput(
 }
 
 function groupFields(plan: PlanInput) {
-  return { name: plan.name, merchantCode: plan.name, options: ["Renews"] };
+  return { name: plan.name, merchantCode: plan.name, options: GROUP_OPTIONS };
 }
+
+/** The group's one option label; each plan's value is its renewal period. */
+const GROUP_OPTIONS = ["Renews"];
 
 /**
  * How often a plan renews, in words: "Every year", "Every 3 months". It is
@@ -166,6 +169,42 @@ function sellingPlanFields(plan: PlanInput) {
         },
       },
     ],
+  };
+}
+
+/** A selling plan group's option labels, as the Admin API returns them. */
+export interface ShopifyPlanOptions {
+  options: string[];
+  sellingPlans: {
+    nodes: {
+      id: string;
+      options: string[];
+      billingPolicy?: { interval?: string; intervalCount?: number } | null;
+    }[];
+  };
+}
+
+/**
+ * The `SellingPlanGroupInput` that gives a plan made before `renewalCadence`
+ * its period as the option ("Every year"), or null when it already has it or
+ * isn't in a shape this app makes. Only labels change, never prices.
+ */
+export function cadenceFixInput(group: ShopifyPlanOptions) {
+  const plans = group.sellingPlans.nodes;
+  if (plans.length !== 1) return null;
+  const { interval, intervalCount } = plans[0].billingPolicy ?? {};
+  if ((interval !== "MONTH" && interval !== "YEAR") || !intervalCount) return null;
+  const cadence = renewalCadence({ interval, intervalCount });
+  if (
+    plans[0].options.length === 1 &&
+    plans[0].options[0] === cadence &&
+    group.options.join() === GROUP_OPTIONS.join()
+  ) {
+    return null;
+  }
+  return {
+    options: GROUP_OPTIONS,
+    sellingPlansToUpdate: [{ id: plans[0].id, options: [cadence] }],
   };
 }
 
