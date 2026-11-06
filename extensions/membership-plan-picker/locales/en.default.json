@@ -3,6 +3,8 @@
     "heading": "Membership",
     "one_time": "One-time purchase",
     "joining": "{{ price }} to join",
-    "renewal": "then {{ price }} at each renewal"
+    "renewal": "then {{ price }} at each renewal",
+    "renewal_every": "then {{ price }} {{ cadence }}",
+    "auto_renew": "Renews automatically until you cancel."
   }
 }

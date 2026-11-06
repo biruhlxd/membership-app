@@ -129,14 +129,26 @@ export function sellingPlanGroupUpdateInput(
 }
 
 function groupFields(plan: PlanInput) {
-  return { name: plan.name, merchantCode: plan.name, options: ["Membership"] };
+  return { name: plan.name, merchantCode: plan.name, options: ["Renews"] };
+}
+
+/**
+ * How often a plan renews, in words: "Every year", "Every 3 months". It is
+ * the selling plan's option value, so the storefront picker can say when the
+ * renewal charge comes (Liquid does not expose the billing interval).
+ */
+export function renewalCadence(plan: Pick<PlanInput, "interval" | "intervalCount">) {
+  const unit = plan.interval === "YEAR" ? "year" : "month";
+  return plan.intervalCount === 1
+    ? `Every ${unit}`
+    : `Every ${plan.intervalCount} ${unit}s`;
 }
 
 function sellingPlanFields(plan: PlanInput) {
   const cadence = { interval: plan.interval, intervalCount: plan.intervalCount };
   return {
     name: plan.name,
-    options: [plan.name],
+    options: [renewalCadence(plan)],
     billingPolicy: { recurring: { ...cadence } },
     deliveryPolicy: { recurring: { ...cadence } },
     pricingPolicies: [

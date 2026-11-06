@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parsePlanForm,
   planFromShopify,
+  renewalCadence,
   sameTerms,
   sellingPlanGroupInput,
   sellingPlanGroupUpdateInput,
@@ -92,10 +93,11 @@ describe("sellingPlanGroupInput", () => {
   const input = sellingPlanGroupInput(parsed.plan);
   const plan = input.sellingPlansToCreate[0];
 
-  it("names the group and its single option after the plan", () => {
+  it("names the plan, and its single option after the renewal period", () => {
     expect(input.name).toBe("Annual membership");
-    expect(input.options).toEqual(["Membership"]);
-    expect(plan.options).toEqual(["Annual membership"]);
+    expect(plan.name).toBe("Annual membership");
+    expect(input.options).toEqual(["Renews"]);
+    expect(plan.options).toEqual(["Every year"]);
   });
 
   it("bills and renews on the chosen interval", () => {
@@ -124,6 +126,15 @@ describe("sellingPlanGroupInput", () => {
 
   it("does not stop after a number of cycles", () => {
     expect(plan.billingPolicy.recurring).not.toHaveProperty("maxCycles");
+  });
+});
+
+describe("renewalCadence", () => {
+  it("says how often the plan renews", () => {
+    expect(renewalCadence({ interval: "YEAR", intervalCount: 1 })).toBe("Every year");
+    expect(renewalCadence({ interval: "YEAR", intervalCount: 2 })).toBe("Every 2 years");
+    expect(renewalCadence({ interval: "MONTH", intervalCount: 1 })).toBe("Every month");
+    expect(renewalCadence({ interval: "MONTH", intervalCount: 6 })).toBe("Every 6 months");
   });
 });
 

@@ -16,12 +16,19 @@
           assign joining = allocation.price_adjustments[0].price
         endif
         assign joining_money = joining | money
-        assign renewal_money = ''
+        assign renewal = joining
         if allocation.price_adjustments.size > 1
           assign renewal = allocation.price_adjustments[1].price
-          if renewal != joining
-            assign renewal_money = renewal | money
-          endif
+        endif
+        assign renewal_money = renewal | money
+        # The app sets the plan's option to its period ("Every year"); plans
+        # made before that carry the plan name instead.
+        assign cadence = allocation.selling_plan.options[0].value
+        if cadence == blank or cadence == allocation.selling_plan.name
+          assign renewal_text = 'plan_picker.renewal' | t: price: renewal_money
+        else
+          assign cadence = cadence | downcase
+          assign renewal_text = 'plan_picker.renewal_every' | t: price: renewal_money, cadence: cadence
         endif
       -%}
       <label class="membership-plans__option">
@@ -33,11 +40,9 @@
         >
         <span class="membership-plans__name">{{ allocation.selling_plan.name }}</span>
         <span class="membership-plans__price">
-          {{ 'plan_picker.joining' | t: price: joining_money }}
-          {%- if renewal_money != blank -%}
-            , {{ 'plan_picker.renewal' | t: price: renewal_money }}
-          {%- endif -%}
+          {{- 'plan_picker.joining' | t: price: joining_money }}, {{ renewal_text -}}
         </span>
+        <span class="membership-plans__terms">{{ 'plan_picker.auto_renew' | t }}</span>
       </label>
     {%- endfor -%}
   </fieldset>
