@@ -117,7 +117,7 @@ model BillingAttempt {
 model EmailLog {
   id           String   @id @default(cuid())
   membershipId String
-  kind         String // RENEWAL_REMINDER, PAYMENT_FAILED, LAPSED
+  kind         String // see EmailKind in app/membership/emails.ts
   key          String // see emailKey in app/membership/emails.ts
   to           String
   subject      String

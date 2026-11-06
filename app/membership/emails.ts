@@ -1,7 +1,7 @@
 // Member emails: when they are due and what they say.
 // Pure functions: no Shopify calls, no database, no sending.
 
-export type EmailKind = "RENEWAL_REMINDER" | "PAYMENT_FAILED" | "LAPSED" | "SEAT_INVITE";
+export type EmailKind = "WELCOME" | "RENEWAL_REMINDER" | "PAYMENT_FAILED" | "LAPSED" | "SEAT_INVITE";
 
 /** Days before a renewal that the reminder goes out. */
 export const REMINDER_LEAD_DAYS = 7;
@@ -32,6 +32,8 @@ export function emailKey(
   detail: { renewalAt?: Date; failedAttempts?: number; seatId?: string } = {},
 ): string {
   switch (kind) {
+    case "WELCOME":
+      return "welcome";
     case "RENEWAL_REMINDER":
       return `renewal-${detail.renewalAt?.toISOString().slice(0, 10) ?? "unknown"}`;
     case "PAYMENT_FAILED":
@@ -49,6 +51,38 @@ export interface EmailContent {
 }
 
 const greeting = (firstName: string | null) => (firstName ? `Hi ${firstName},` : "Hello,");
+
+/**
+ * After joining: what renews when, and where to manage it (Shopify asks
+ * subscription apps to send the customer portal link after purchase).
+ */
+export function welcomeEmail(p: {
+  shopName: string;
+  firstName: string | null;
+  planName: string;
+  renewalDate: string | null;
+  amount: string | null;
+  accountUrl: string | null;
+}): EmailContent {
+  const renews = p.renewalDate
+    ? `It renews automatically on ${p.renewalDate}${p.amount ? ` for ${p.amount}` : ""}, and we'll remind you a week before.`
+    : "It renews automatically, and we'll remind you a week before.";
+  const where = p.accountUrl
+    ? `To see your membership, update your card or cancel, go to the Membership page in your account: ${p.accountUrl}`
+    : "To see your membership, update your card or cancel, go to the Membership page in your account.";
+  return {
+    subject: `Welcome to your ${p.planName}`,
+    text: [
+      greeting(p.firstName),
+      "",
+      `Thank you for joining ${p.shopName}. Your ${p.planName} is active. ${renews}`,
+      "",
+      where,
+      "",
+      p.shopName,
+    ].join("\n"),
+  };
+}
 
 export function renewalReminderEmail(p: {
   shopName: string;

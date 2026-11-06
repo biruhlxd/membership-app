@@ -1,49 +1,13 @@
-import { useState } from "react";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { Form, useActionData, useLoaderData } from "react-router";
+import type { LoaderFunctionArgs } from "react-router";
+import { redirect } from "react-router";
 
 import { login } from "../../shopify.server";
-import { loginErrorMessage } from "./error.server";
 
+// Where the Shopify library sends a request it can't tie to a shop. Installs
+// start from the App Store or the admin, never from a typed shop address, so
+// there is no shop-domain form: a request from Shopify (with `shop`) goes on
+// to Shopify's sign-in, anything else to the app's public page.
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const errors = loginErrorMessage(await login(request));
-
-  return { errors };
+  if (new URL(request.url).searchParams.get("shop")) await login(request);
+  throw redirect("/");
 };
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const errors = loginErrorMessage(await login(request));
-
-  return {
-    errors,
-  };
-};
-
-export default function Auth() {
-  const loaderData = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
-  const [shop, setShop] = useState("");
-  const { errors } = actionData || loaderData;
-
-  return (
-    <>
-      <script src="https://cdn.shopify.com/shopifycloud/polaris.js" />
-      <s-page>
-        <Form method="post">
-        <s-section heading="Log in">
-          <s-text-field
-            name="shop"
-            label="Shop domain"
-            details="example.myshopify.com"
-            value={shop}
-            onChange={(e) => setShop(e.currentTarget.value)}
-            autocomplete="on"
-            error={errors.shop}
-          ></s-text-field>
-          <s-button type="submit">Log in</s-button>
-        </s-section>
-        </Form>
-      </s-page>
-    </>
-  );
-}

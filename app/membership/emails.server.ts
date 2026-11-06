@@ -20,6 +20,7 @@ import {
   reminderDue,
   renewalReminderEmail,
   seatInviteEmail,
+  welcomeEmail,
   type EmailContent,
   type EmailKind,
 } from "./emails";
@@ -31,6 +32,9 @@ const CONTEXT = `#graphql
     shop {
       name
       contactEmail
+      customerAccountsV2 {
+        url
+      }
     }
     customer(id: $customerId) {
       firstName
@@ -109,7 +113,12 @@ async function notify(
   membershipId: string,
   kind: EmailKind,
   key: string,
-  build: (ctx: { shopName: string; firstName: string | null; planName: string }) => EmailContent,
+  build: (ctx: {
+    shopName: string;
+    firstName: string | null;
+    planName: string;
+    accountUrl: string | null;
+  }) => EmailContent,
 ): Promise<boolean> {
   const already = await prisma.emailLog.findUnique({
     where: { membershipId_kind_key: { membershipId, kind, key } },
@@ -133,6 +142,7 @@ async function notify(
     shopName: data.shop.name,
     firstName: data.customer.firstName ?? null,
     planName: m.plan.name,
+    accountUrl: data.shop.customerAccountsV2?.url ?? null,
   });
   // Recorded before delivery: a crash after this can't send it twice.
   await prisma.emailLog.create({
@@ -147,6 +157,26 @@ async function notify(
     data: { delivery },
   });
   return true;
+}
+
+/** How long after joining the welcome email may still go out (webhook retries, a slow first sync). */
+const WELCOME_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
+
+/**
+ * Welcome a new member with the link to their Membership page, once. Members
+ * who joined before this email existed don't get it late.
+ */
+export async function notifyWelcome(admin: Admin, membershipId: string, now = new Date()) {
+  const m = await prisma.membership.findUnique({ where: { id: membershipId } });
+  if (!m || m.status !== "ACTIVE") return false;
+  if (now.getTime() - m.createdAt.getTime() > WELCOME_WINDOW_MS) return false;
+  return notify(admin, membershipId, "WELCOME", emailKey("WELCOME"), (ctx) =>
+    welcomeEmail({
+      ...ctx,
+      renewalDate: m.nextRenewalAt ? longDate(m.nextRenewalAt) : null,
+      amount: money(m.nextRenewalAmount, m.currency),
+    }),
+  );
 }
 
 /** Tell a member a payment failed, and when the next try is (if any). */

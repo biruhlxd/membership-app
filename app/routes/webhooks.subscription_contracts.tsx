@@ -4,6 +4,7 @@ import prisma from "../db.server";
 import { syncContract } from "../membership/contracts.server";
 import { refreshSchedule } from "../membership/renewals.server";
 import { evaluateCustomer } from "../membership/credentials.server";
+import { notifyWelcome } from "../membership/emails.server";
 
 // Every subscription_contracts/* topic lands here. The payload only names the
 // contract; syncContract reads its current state from Shopify.
@@ -27,6 +28,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
       if (membership) {
         await refreshSchedule(admin, membership.id);
+        // After the schedule, so the email can say when it renews.
+        await notifyWelcome(admin, membership.id).catch((error) =>
+          console.error(`welcome email for membership ${membership.id} failed:`, error),
+        );
         // A plan can be a credential requirement: joining may complete one.
         await evaluateCustomer(admin, shop, membership.customerId).catch((error) =>
           console.error(`credentials for ${membership.customerId} on ${shop} failed:`, error),

@@ -5,6 +5,12 @@
   "none": "You don't have a membership yet.",
   "membership": "Membership",
   "nextRenewal": "Renews on {{date}} for {{price}}.",
+  "every": {
+    "DAY": { "one": "Renews every day.", "other": "Renews every {{count}} days." },
+    "WEEK": { "one": "Renews every week.", "other": "Renews every {{count}} weeks." },
+    "MONTH": { "one": "Renews every month.", "other": "Renews every {{count}} months." },
+    "YEAR": { "one": "Renews every year.", "other": "Renews every {{count}} years." }
+  },
   "updateCard": "Update payment card",
   "cancel": "Cancel membership",
   "confirmHeading": "Cancel your membership?",

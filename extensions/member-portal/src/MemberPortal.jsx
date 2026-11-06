@@ -21,6 +21,7 @@ const CONTRACTS = `query MemberContracts {
         status
         nextBillingDate
         currencyCode
+        billingPolicy { interval intervalCount { count } }
         lines(first: 5) {
           nodes {
             name
@@ -136,6 +137,13 @@ function MemberPortal() {
                           currency: line.currentPrice.currencyCode,
                         })
                       : '',
+                  })}
+                </s-text>
+              )}
+              {active && c.billingPolicy && (
+                <s-text color="subdued">
+                  {t(`every.${c.billingPolicy.interval}`, {
+                    count: c.billingPolicy.intervalCount?.count ?? 1,
                   })}
                 </s-text>
               )}

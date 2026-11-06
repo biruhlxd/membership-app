@@ -10,6 +10,7 @@ import {
   credentialExpiryDue,
   credentialIssuedEmail,
   credentialPendingEmail,
+  welcomeEmail,
 } from "./emails";
 
 const now = new Date("2027-10-24T12:00:00Z");
@@ -112,5 +113,28 @@ describe("credential emails", () => {
     expect(
       credentialExpiringEmail({ shopName: "USSEA", firstName: "Ana", typeName: "Coach Level 1", number: "N", expiresAt: new Date("2026-12-01T00:00:00Z") }).subject,
     ).toBe("Your Coach Level 1 credential expires on December 1, 2026");
+  });
+});
+
+describe("welcomeEmail", () => {
+  const base = { shopName: "USSEA", firstName: "Ana", planName: "Coach membership" };
+
+  it("says when it renews and links the Membership page", () => {
+    const email = welcomeEmail({
+      ...base,
+      renewalDate: "November 6, 2027",
+      amount: "$90.00",
+      accountUrl: "https://shopify.com/1/account",
+    });
+    expect(email.subject).toBe("Welcome to your Coach membership");
+    expect(email.text).toContain("renews automatically on November 6, 2027 for $90.00");
+    expect(email.text).toContain("Membership page in your account: https://shopify.com/1/account");
+    expect(emailKey("WELCOME")).toBe("welcome");
+  });
+
+  it("still makes sense without a date, amount or link", () => {
+    const email = welcomeEmail({ ...base, renewalDate: null, amount: null, accountUrl: null });
+    expect(email.text).toContain("It renews automatically, and we'll remind you a week before.");
+    expect(email.text).toContain("go to the Membership page in your account.");
   });
 });

@@ -18,6 +18,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     active,
     pastDue,
     subscriptionAccess: scopes.includes("write_own_subscription_contracts"),
+    // Opens the theme editor on the product template with the "Membership
+    // plans" block (blocks/plan-picker.liquid) already added.
+    pickerEditorUrl: `shopify://admin/themes/current/editor?template=product&addAppBlockId=${process.env.SHOPIFY_API_KEY ?? ""}/plan-picker&target=mainSection`,
   };
 };
 
@@ -29,7 +32,7 @@ type Step = {
 };
 
 export default function Home() {
-  const { plans, active, pastDue, subscriptionAccess } =
+  const { plans, active, pastDue, subscriptionAccess, pickerEditorUrl } =
     useLoaderData<typeof loader>();
 
   const steps: Step[] = [
@@ -40,14 +43,11 @@ export default function Home() {
       action: { label: "Create plan", href: "/app/plans/new" },
     },
     {
-      done: subscriptionAccess,
-      title: "Get Shopify's approval for renewals",
-      body: "Charging renewals needs Shopify's approval to manage subscription contracts. Request it in the Partner Dashboard under API access requests.",
-      action: {
-        label: "Open Partner Dashboard",
-        href: "https://partners.shopify.com",
-        external: true,
-      },
+      // A first purchase shows the block is on the product page.
+      done: active + pastDue > 0,
+      title: "Show your plans on the product page",
+      body: "Add the \"Membership plans\" block to your product template so buyers see the joining price, the renewal price and how often it renews. The button opens the theme editor with the block added; place it near the Add to cart button and click Save.",
+      action: { label: "Add block in theme editor", href: pickerEditorUrl, external: true },
     },
     {
       done: active + pastDue > 0,
@@ -59,6 +59,13 @@ export default function Home() {
 
   return (
     <s-page heading="Membership">
+      {!subscriptionAccess && (
+        <s-banner tone="warning" heading="Renewals are not available yet">
+          This store hasn&apos;t granted the app access to subscription contracts, so
+          renewals can&apos;t be charged. Open the app again from your Apps list to
+          approve the access, or contact support.
+        </s-banner>
+      )}
       {completed < steps.length && (
         <s-section heading="Setup guide">
           <s-stack direction="block" gap="base">

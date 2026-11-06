@@ -20,6 +20,35 @@ const CUSTOMERS = `#graphql
     }
   }`;
 
+// The order each membership was bought with, for a link to it in the admin.
+const ORIGIN_ORDERS = `#graphql
+  query membershipOriginOrders($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      ... on SubscriptionContract {
+        id
+        originOrder {
+          id
+          name
+        }
+      }
+    }
+  }`;
+
+type Admin = Awaited<ReturnType<typeof authenticate.admin>>["admin"];
+
+/** Shopify's `nodes` takes up to 250 ids per call. */
+async function readNodes(admin: Admin, query: string, ids: string[]) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const nodes: any[] = [];
+  for (let i = 0; i < ids.length; i += 250) {
+    const body = await (
+      await admin.graphql(query, { variables: { ids: ids.slice(i, i + 250) } })
+    ).json();
+    nodes.push(...(body.data?.nodes ?? []).filter(Boolean));
+  }
+  return nodes;
+}
+
 const dateFormat: Intl.DateTimeFormatOptions = {
   year: "numeric",
   month: "short",
@@ -63,17 +92,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Names are protected customer data; without access, show the customer id.
   const names = new Map<string, string>();
   const ids = [...new Set(memberships.map((m) => m.customerId))];
-  if (ids.length > 0) {
-    try {
-      const body = await (
-        await admin.graphql(CUSTOMERS, { variables: { ids } })
-      ).json();
-      for (const node of body.data?.nodes ?? []) {
-        if (node?.id && node.displayName) names.set(node.id, node.displayName);
-      }
-    } catch {
-      // Fall back to ids below.
+  try {
+    for (const node of await readNodes(admin, CUSTOMERS, ids)) {
+      if (node.id && node.displayName) names.set(node.id, node.displayName);
     }
+  } catch {
+    // Fall back to ids below.
+  }
+
+  const orders = new Map<string, { id: string; name: string }>();
+  try {
+    const contracts = memberships.map((m) => m.contractId);
+    for (const node of await readNodes(admin, ORIGIN_ORDERS, contracts)) {
+      if (node.id && node.originOrder) orders.set(node.id, node.originOrder);
+    }
+  } catch {
+    // The order column stays empty.
   }
 
   return {
@@ -82,6 +116,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       customer: names.get(m.customerId) ?? m.customerId.split("/").pop() ?? m.customerId,
       customerAdminId: m.customerId.split("/").pop() ?? "",
       plan: m.plan.name,
+      order: orders.has(m.contractId)
+        ? {
+            name: orders.get(m.contractId)!.name,
+            adminId: orders.get(m.contractId)!.id.split("/").pop() ?? "",
+          }
+        : null,
       status: m.status,
       failedAttempts: m.failedAttempts,
       nextAttemptAt: m.nextAttemptAt?.toLocaleDateString("en-US", dateFormat) ?? null,
@@ -192,6 +232,7 @@ export default function Members() {
               <s-table-header listSlot="labeled">Plan</s-table-header>
               <s-table-header listSlot="labeled">Status</s-table-header>
               <s-table-header listSlot="labeled">Member since</s-table-header>
+              <s-table-header listSlot="labeled">Order</s-table-header>
               <s-table-header listSlot="labeled">Last paid</s-table-header>
               <s-table-header listSlot="labeled">Next renewal</s-table-header>
               <s-table-header listSlot="labeled">Charge</s-table-header>
@@ -224,6 +265,13 @@ export default function Members() {
                     )}
                   </s-table-cell>
                   <s-table-cell>{m.since}</s-table-cell>
+                  <s-table-cell>
+                    {m.order ? (
+                      <s-link href={`shopify://admin/orders/${m.order.adminId}`}>{m.order.name}</s-link>
+                    ) : (
+                      "—"
+                    )}
+                  </s-table-cell>
                   <s-table-cell>{m.lastPaid ?? "—"}</s-table-cell>
                   <s-table-cell>
                     {m.nextRenewal ? (
