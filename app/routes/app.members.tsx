@@ -9,6 +9,7 @@ import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { refreshSchedule, renewNow, runRenewals } from "../membership/renewals.server";
 import { logAccess } from "../membership/dataCrypto.server";
+import { resendWelcome } from "../membership/emails.server";
 
 const CUSTOMERS = `#graphql
   query membershipCustomers($ids: [ID!]!) {
@@ -170,6 +171,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       : { message: `No charge: ${result.reason}.`, tone: "warning" as const };
   }
 
+  if (data.get("intent") === "welcome") {
+    const id = String(data.get("membershipId") ?? "");
+    const owned = await prisma.membership.findFirst({ where: { id, shop: session.shop } });
+    if (!owned) return { message: "Member not found.", tone: "critical" as const };
+    try {
+      return (await resendWelcome(admin, id))
+        ? { message: "Welcome email sent to the customer's current email address.", tone: "success" as const }
+        : {
+            message:
+              "Not sent: it was already resent in the last 5 minutes, the membership isn't active, or the customer has no email address.",
+            tone: "warning" as const,
+          };
+    } catch (error) {
+      console.error(`Resend welcome for membership ${id} failed:`, error);
+      return { message: "The email couldn't be sent. Try again in a moment.", tone: "critical" as const };
+    }
+  }
+
   const results = await runRenewals(admin, session.shop);
   const charged = results.filter((r) => r.result.charged).length;
   return {
@@ -235,7 +254,7 @@ export default function Members() {
               <s-table-header listSlot="labeled">Order</s-table-header>
               <s-table-header listSlot="labeled">Last paid</s-table-header>
               <s-table-header listSlot="labeled">Next renewal</s-table-header>
-              <s-table-header listSlot="labeled">Charge</s-table-header>
+              <s-table-header listSlot="labeled">Actions</s-table-header>
             </s-table-header-row>
             <s-table-body>
               {members.map((m) => (
@@ -284,13 +303,24 @@ export default function Members() {
                     )}
                   </s-table-cell>
                   <s-table-cell>
-                    <fetcher.Form method="post">
-                      <input type="hidden" name="intent" value="renew" />
-                      <input type="hidden" name="membershipId" value={m.id} />
-                      <s-button type="submit" variant="tertiary">
-                        Renew now
-                      </s-button>
-                    </fetcher.Form>
+                    <s-stack direction="inline" gap="small-200">
+                      <fetcher.Form method="post">
+                        <input type="hidden" name="intent" value="renew" />
+                        <input type="hidden" name="membershipId" value={m.id} />
+                        <s-button type="submit" variant="tertiary">
+                          Renew now
+                        </s-button>
+                      </fetcher.Form>
+                      {m.status === "ACTIVE" && (
+                        <fetcher.Form method="post">
+                          <input type="hidden" name="intent" value="welcome" />
+                          <input type="hidden" name="membershipId" value={m.id} />
+                          <s-button type="submit" variant="tertiary">
+                            Resend welcome email
+                          </s-button>
+                        </fetcher.Form>
+                      )}
+                    </s-stack>
                   </s-table-cell>
                 </s-table-row>
               ))}

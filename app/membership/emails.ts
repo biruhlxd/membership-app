@@ -22,6 +22,8 @@ export function reminderDue(
   return until > 0 && until <= leadDays * DAY_MS;
 }
 
+export const RESEND_SLOT_MS = 5 * 60 * 1000;
+
 /**
  * The key that makes an email unique for one membership, so it is sent once:
  * one reminder per renewal date, one failure notice per failed attempt, one
@@ -29,11 +31,14 @@ export function reminderDue(
  */
 export function emailKey(
   kind: EmailKind,
-  detail: { renewalAt?: Date; failedAttempts?: number; seatId?: string } = {},
+  detail: { renewalAt?: Date; failedAttempts?: number; seatId?: string; resendAt?: Date } = {},
 ): string {
   switch (kind) {
     case "WELCOME":
-      return "welcome";
+      // A resend by the merchant: at most one per 5-minute slot.
+      return detail.resendAt
+        ? `welcome-resend-${new Date(Math.floor(detail.resendAt.getTime() / RESEND_SLOT_MS) * RESEND_SLOT_MS).toISOString()}`
+        : "welcome";
     case "RENEWAL_REMINDER":
       return `renewal-${detail.renewalAt?.toISOString().slice(0, 10) ?? "unknown"}`;
     case "PAYMENT_FAILED":

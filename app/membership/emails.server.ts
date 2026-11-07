@@ -179,6 +179,23 @@ export async function notifyWelcome(admin: Admin, membershipId: string, now = ne
   );
 }
 
+/**
+ * The merchant sends the welcome email again, to the customer's current
+ * address (after fixing a typo, say). Active members only; false if one was
+ * already resent in the last few minutes.
+ */
+export async function resendWelcome(admin: Admin, membershipId: string, now = new Date()) {
+  const m = await prisma.membership.findUnique({ where: { id: membershipId } });
+  if (!m || m.status !== "ACTIVE") return false;
+  return notify(admin, membershipId, "WELCOME", emailKey("WELCOME", { resendAt: now }), (ctx) =>
+    welcomeEmail({
+      ...ctx,
+      renewalDate: m.nextRenewalAt ? longDate(m.nextRenewalAt) : null,
+      amount: money(m.nextRenewalAmount, m.currency),
+    }),
+  );
+}
+
 /** Tell a member a payment failed, and when the next try is (if any). */
 export async function notifyPaymentFailed(
   admin: Admin,

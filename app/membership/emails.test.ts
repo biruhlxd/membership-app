@@ -42,6 +42,14 @@ describe("emailKey", () => {
     expect(emailKey("PAYMENT_FAILED", { failedAttempts: 2 })).toBe("failed-2");
     expect(emailKey("LAPSED")).toBe("lapsed");
   });
+
+  it("gives one welcome, and lets the merchant resend it once per 5 minutes", () => {
+    const at = (iso: string) => emailKey("WELCOME", { resendAt: new Date(iso) });
+    expect(emailKey("WELCOME")).toBe("welcome");
+    expect(at("2026-11-07T12:01:00Z")).toBe("welcome-resend-2026-11-07T12:00:00.000Z");
+    expect(at("2026-11-07T12:04:59Z")).toBe(at("2026-11-07T12:01:00Z"));
+    expect(at("2026-11-07T12:05:00Z")).not.toBe(at("2026-11-07T12:04:59Z"));
+  });
 });
 
 describe("email content", () => {
