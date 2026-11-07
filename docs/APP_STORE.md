@@ -92,6 +92,8 @@ month and emails biruh@biruh.org if anything fails (log:
 - `read_discounts`, `write_discounts`: the member price discount.
 - `read_validations`, `write_validations`: the members-only products check
   at checkout.
+- `customer_read_customers`: the Membership page reads the signed-in
+  customer's own memberships (Shopify requires it for the `customer` field).
 - `customer_read_own_subscription_contracts`,
   `customer_write_own_subscription_contracts`: the Membership page in the
   customer account (view and cancel).
