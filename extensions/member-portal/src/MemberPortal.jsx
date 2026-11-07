@@ -13,9 +13,10 @@ export default async () => {
 
 const API = 'shopify://customer-account/api/2026-10/graphql.json';
 
-const CONTRACTS = `query MemberContracts {
+const CONTRACTS = `query MemberContracts($after: String) {
   customer {
-    subscriptionContracts(first: 10) {
+    subscriptionContracts(first: 25, after: $after) {
+      pageInfo { hasNextPage endCursor }
       nodes {
         id
         status
@@ -51,6 +52,18 @@ async function gql(query, variables) {
   return body.data;
 }
 
+// Every membership, a page at a time.
+async function allContracts() {
+  const contracts = [];
+  let after = null;
+  do {
+    const page = (await gql(CONTRACTS, {after})).customer.subscriptionContracts;
+    contracts.push(...page.nodes);
+    after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+  } while (after);
+  return contracts;
+}
+
 const t = (key, options) => shopify.i18n.translate(key, options);
 
 // Customer account badges take only auto, neutral or critical.
@@ -71,8 +84,8 @@ function MemberPortal() {
   const [busy, setBusy] = useState(false);
 
   const load = () =>
-    gql(CONTRACTS)
-      .then((data) => setContracts(data.customer.subscriptionContracts.nodes))
+    allContracts()
+      .then(setContracts)
       .catch((e) => setError(e.message));
 
   useEffect(() => {
