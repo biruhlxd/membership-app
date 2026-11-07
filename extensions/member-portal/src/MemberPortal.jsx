@@ -47,6 +47,7 @@ async function gql(query, variables) {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({query, variables}),
   });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const body = await response.json();
   if (body.errors?.length) throw new Error(body.errors[0].message);
   return body.data;
@@ -86,7 +87,10 @@ function MemberPortal() {
   const load = () =>
     allContracts()
       .then(setContracts)
-      .catch((e) => setError(e.message));
+      .catch((e) => {
+        console.error('membership load failed', e);
+        setError(e.message);
+      });
 
   useEffect(() => {
     load();
@@ -110,7 +114,13 @@ function MemberPortal() {
   if (error && !contracts) {
     return (
       <s-page heading={t('heading')}>
-        <s-banner tone="critical">{t('loadError')}</s-banner>
+        <s-banner tone="critical">
+          <s-stack direction="block" gap="small-200">
+            <s-text>{t('loadError')}</s-text>
+            {/* Shopify's reason, for the shop's support to see. */}
+            <s-text color="subdued">{error}</s-text>
+          </s-stack>
+        </s-banner>
       </s-page>
     );
   }
