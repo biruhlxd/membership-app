@@ -30,7 +30,10 @@ Still to check by hand in a test store before submitting:
 Checked 2026-11-06: 3.1.1, the app.biruh.org certificate is Let's Encrypt
 (cPanel AutoSSL renews it) and plain HTTP redirects to HTTPS (a rewrite in
 ~/app.biruh.org/.htaccess, after the CloudLinux Passenger block). A backup
-from that day restored cleanly with the same rows as live.
+from that day restored cleanly with the same rows as live. Since 2026-11-07
+`~/app-backups/restore-check.sh` repeats that restore on the 3rd of every
+month and emails biruh@biruh.org if anything fails (log:
+`~/app-backups/restore-check.log`).
 
 ## Listing
 
