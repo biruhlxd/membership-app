@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Members page: "Resend welcome email" sends the welcome email again to the
+  customer's current address (after fixing a typo). Active members only, at
+  most once per 5 minutes per member.
+
+- Member portal loads every membership, not only the first 10.
+
 - Credential emails: waiting for review, issued (number, expiry, verification
   link) and expiring in 30 days, each sent once (times on the credential).
   An expired credential is earned again only through the approver; a
