@@ -1,4 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import prisma from "../db.server";
 import { authenticate, unauthenticated } from "../shopify.server";
 import {
   answerInvitation,
@@ -21,6 +22,10 @@ async function caller(request: Request) {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { shop, customerId, admin, cors } = await caller(request);
   if (!customerId) return cors(Response.json({ error: "Not logged in." }, { status: 401 }));
+  // Ticks "Add the Membership page" in the setup guide; never blocks the page.
+  await prisma.shopSetup
+    .upsert({ where: { shop }, create: { shop, portalSeenAt: new Date() }, update: {} })
+    .catch((error) => console.error(`portal seen for ${shop}:`, error));
   return cors(Response.json(await portalState(admin, shop, customerId)));
 };
 

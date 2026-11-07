@@ -61,6 +61,16 @@ const greeting = (firstName: string | null) => (firstName ? `Hi ${firstName},` :
  * After joining: what renews when, and where to manage it (Shopify asks
  * subscription apps to send the customer portal link after purchase).
  */
+/**
+ * The Membership page (extensions/member-portal) in a shop's customer
+ * account. Shopify gives each full-page extension a fixed id; this one was
+ * read from the live app's page on 2026-11-07 and differs for the dev app.
+ */
+export const MEMBERSHIP_PAGE_ID = "01a193a1-f5b7-726d-94ff-8e2fd8cb27eb";
+
+export const membershipPageUrl = (accountUrl: string, pageId = MEMBERSHIP_PAGE_ID) =>
+  `${accountUrl.replace(/\/+$/, "")}/pages/${pageId}`;
+
 export function welcomeEmail(p: {
   shopName: string;
   firstName: string | null;

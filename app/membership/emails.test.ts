@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   emailKey,
+  membershipPageUrl,
   lapsedEmail,
   paymentFailedEmail,
   reminderDue,
@@ -49,6 +50,15 @@ describe("emailKey", () => {
     expect(at("2026-11-07T12:01:00Z")).toBe("welcome-resend-2026-11-07T12:00:00.000Z");
     expect(at("2026-11-07T12:04:59Z")).toBe(at("2026-11-07T12:01:00Z"));
     expect(at("2026-11-07T12:05:00Z")).not.toBe(at("2026-11-07T12:04:59Z"));
+  });
+});
+
+describe("membershipPageUrl", () => {
+  it("links straight to the Membership page in the customer account", () => {
+    expect(membershipPageUrl("https://shopify.com/77937442951/account")).toBe(
+      "https://shopify.com/77937442951/account/pages/01a193a1-f5b7-726d-94ff-8e2fd8cb27eb",
+    );
+    expect(membershipPageUrl("https://shopify.com/1/account/", "x")).toBe("https://shopify.com/1/account/pages/x");
   });
 });
 

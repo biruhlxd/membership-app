@@ -16,6 +16,8 @@ import {
   credentialPendingEmail,
   emailKey,
   lapsedEmail,
+  membershipPageUrl,
+  MEMBERSHIP_PAGE_ID,
   paymentFailedEmail,
   reminderDue,
   renewalReminderEmail,
@@ -142,7 +144,10 @@ async function notify(
     shopName: data.shop.name,
     firstName: data.customer.firstName ?? null,
     planName: m.plan.name,
-    accountUrl: data.shop.customerAccountsV2?.url ?? null,
+    // Straight to the Membership page; the dev app's page has its own id.
+    accountUrl: data.shop.customerAccountsV2?.url
+      ? membershipPageUrl(data.shop.customerAccountsV2.url, process.env.MEMBERSHIP_PAGE_ID || MEMBERSHIP_PAGE_ID)
+      : null,
   });
   // Recorded before delivery: a crash after this can't send it twice.
   await prisma.emailLog.create({

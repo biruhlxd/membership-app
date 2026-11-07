@@ -10,10 +10,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shop = session.shop;
   // Plans made before the picker showed the renewal period get it now.
   await refreshPlanCadences(admin, shop);
-  const [plans, active, pastDue] = await Promise.all([
+  const [plans, active, pastDue, setup] = await Promise.all([
     prisma.membershipPlan.count({ where: { shop } }),
     prisma.membership.count({ where: { shop, status: "ACTIVE" } }),
     prisma.membership.count({ where: { shop, status: "PAST_DUE" } }),
+    prisma.shopSetup.findUnique({ where: { shop } }),
   ]);
   const scopes = (session.scope ?? "").split(",");
   return {
@@ -21,6 +22,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     active,
     pastDue,
     subscriptionAccess: scopes.includes("write_own_subscription_contracts"),
+    // The Membership page records its first load (api.portal.tsx).
+    portalSeen: Boolean(setup?.portalSeenAt),
     // Opens the theme editor on the product template with the "Membership
     // plans" block (blocks/plan-picker.liquid) already added.
     pickerEditorUrl: `shopify://admin/themes/current/editor?template=product&addAppBlockId=${process.env.SHOPIFY_API_KEY ?? ""}/plan-picker&target=mainSection`,
@@ -35,7 +38,7 @@ type Step = {
 };
 
 export default function Home() {
-  const { plans, active, pastDue, subscriptionAccess, pickerEditorUrl } =
+  const { plans, active, pastDue, subscriptionAccess, portalSeen, pickerEditorUrl } =
     useLoaderData<typeof loader>();
 
   const steps: Step[] = [
@@ -51,6 +54,12 @@ export default function Home() {
       title: "Show your plans on the product page",
       body: "Add the \"Membership plans\" block to your product template so buyers see the joining price, the renewal price and how often it renews. The button opens the theme editor with the block added; place it near the Add to cart button and click Save.",
       action: { label: "Add block in theme editor", href: pickerEditorUrl, external: true },
+    },
+    {
+      done: portalSeen,
+      title: "Add the Membership page to customer accounts",
+      body: "Members see their membership, next renewal and price there, update their card and cancel; the welcome email links to it. In Settings › Checkout click Customize, open the Apps section, add Biruh Membership's \"Membership\" page and save. Then in Content › Menus add it to the Customer account main menu. This step completes once the page has been opened.",
+      action: { label: "Open checkout settings", href: "shopify://admin/settings/checkout", external: true },
     },
     {
       done: active + pastDue > 0,

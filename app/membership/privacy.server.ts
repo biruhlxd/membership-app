@@ -76,6 +76,7 @@ export async function redactShop(shop: string) {
     prisma.credential.deleteMany({ where: { shop } }),
     prisma.credentialType.deleteMany({ where: { shop } }),
     prisma.shopAppPlan.deleteMany({ where: { shop } }),
+    prisma.shopSetup.deleteMany({ where: { shop } }),
     prisma.accessLog.deleteMany({ where: { shop } }),
     prisma.dataRequest.deleteMany({ where: { shop } }),
   ]);

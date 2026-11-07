@@ -218,6 +218,13 @@ model ShopAppPlan {
   updatedAt DateTime @updatedAt
 }
 
+// Setup steps the app can only see from outside the admin: the first time
+// the Membership page loaded in the shop's customer account.
+model ShopSetup {
+  shop         String    @id
+  portalSeenAt DateTime?
+}
+
 // Every read of customer personal data and every privacy request. Kept 12
 // months (pruneAccessLog). See docs/SECURITY.md.
 model AccessLog {

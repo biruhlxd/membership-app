@@ -14,6 +14,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
   // Shopify cancels the app's charges on uninstall; a reinstall asks again.
   await db.shopAppPlan.deleteMany({ where: { shop } });
+  // Uninstalling removes the Membership page; a reinstall adds it again.
+  await db.shopSetup.deleteMany({ where: { shop } });
 
   return new Response();
 };

@@ -6,7 +6,15 @@
   customer's current address (after fixing a typo). Active members only, at
   most once per 5 minutes per member.
 
-- Member portal loads every membership, not only the first 10.
+- Member portal loads every membership, not only the first 10, and shows
+  Shopify's reason when it can't load. New scope customer_read_customers:
+  the portal's `customer` query needs it.
+
+- The welcome email links straight to the Membership page
+  (MEMBERSHIP_PAGE_ID in app/membership/emails.ts; MEMBERSHIP_PAGE_ID in
+  the environment for the dev app). New setup guide step "Add the
+  Membership page to customer accounts", completed the first time the page
+  loads (ShopSetup.portalSeenAt). MySQL migration 20261107190000_shop_setup.
 
 - Credential emails: waiting for review, issued (number, expiry, verification
   link) and expiring in 30 days, each sent once (times on the credential).

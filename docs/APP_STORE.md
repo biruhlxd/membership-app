@@ -114,7 +114,10 @@ Testing instructions (draft):
 5. Members: the customer is listed as Active, with the order linked and the
    next renewal date. The customer has the tag `member`. "Renew now" sends
    a renewal charge straight away.
-6. Customer account › Membership: status, next renewal, renewal period,
+6. Settings › Checkout › Customize › Apps: add the "Membership" page and
+   save; Content › Menus › Customer account main menu: add it. (The home
+   page setup guide says the same.) The welcome email links straight to it.
+   Customer account › Membership: status, next renewal, renewal period,
    update card, cancel. Cancel: the Members page shows "Ending" with the
    date access ends.
 
