@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "890494ed1a86cfd5a6f60eb1a8ce42b7"
-application_url = "https://app.biruh.org"
+application_url = "https://membership.edtechtools.shop"
 embedded = true
 name = "Biruh Membership"
 
@@ -72,7 +72,7 @@ access.admin = "merchant_read"
 access.customer_account = "read"
 
 [auth]
-redirect_urls = [ "https://app.biruh.org/auth/callback", "https://app.biruh.org/api/auth" ]
+redirect_urls = [ "https://membership.edtechtools.shop/auth/callback", "https://membership.edtechtools.shop/api/auth" ]
 
 [build]
 # The live app keeps its address; development uses the dev app (shopify.app.dev.toml).

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploys the committed code to the live app at https://app.biruh.org
+# Deploys the committed code to the live app at https://membership.edtechtools.shop
 # (cPanel Node.js app on biruh.org). Run from the project folder in Git Bash:
 #   bash scripts/deploy-live.sh
 # Then, if shopify.app.toml or extensions changed: npm run deploy
@@ -75,12 +75,12 @@ cloudlinux-selector start --json --interpreter nodejs --app-root $APP >/dev/null
 sleep 2
 # A cold start can take some seconds: ask again for up to 30 seconds.
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  CODE=$(curl -s -o /dev/null -w "%{http_code}" https://app.biruh.org/)
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" https://membership.edtechtools.shop/)
   case "$CODE" in 2*|3*) break ;; esac
   sleep 3
 done
-echo "https://app.biruh.org -> HTTP $CODE"
-for i in 1 2 3 4 5; do curl -s -o /dev/null https://app.biruh.org/ & done; wait
+echo "https://membership.edtechtools.shop -> HTTP $CODE"
+for i in 1 2 3 4 5; do curl -s -o /dev/null https://membership.edtechtools.shop/ & done; wait
 sleep 3
 COPIES=$(copies | wc -l); MAXT=$(copies | awk 'BEGIN{m=0}{if($2>m)m=$2}END{print m}'); TOTAL=$(threads)
 echo "under load: copies=$COPIES, most threads in one copy=$MAXT, account threads=$TOTAL"
@@ -91,7 +91,7 @@ if [ "$COPIES" -gt 2 ] || [ "$MAXT" -gt 20 ] || [ "$TOTAL" -gt 60 ]; then
   exit 2
 fi
 A=$(ls build/client/assets | grep "^entry.client" | head -1)
-curl -s -o /dev/null -w "scripts -> HTTP %{http_code}\n" https://app.biruh.org/assets/$A
+curl -s -o /dev/null -w "scripts -> HTTP %{http_code}\n" https://membership.edtechtools.shop/assets/$A
 # Mark this deploy as finished, so the next one keeps it as the fallback.
 touch ~/$APP/.deployed
 echo "after: $(ps -u biruhorg --no-headers | wc -l) processes, $(threads) threads"

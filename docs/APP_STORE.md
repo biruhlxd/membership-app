@@ -66,8 +66,8 @@ month and emails biruh@biruh.org if anything fails (log:
   Association $149 / 30 days (unlimited members, everything). 14-day free
   trial on every plan. Member limits are a guide: the app never stops
   renewals or access for members who already paid.
-- **Privacy policy:** `https://app.biruh.org/privacy`
-- **Terms:** `https://app.biruh.org/terms`
+- **Privacy policy:** `https://membership.edtechtools.shop/privacy`
+- **Terms:** `https://membership.edtechtools.shop/terms`
 - **Support:** biruh@biruh.org
 
 ## Screenshots to take (1600 × 900)

@@ -1,5 +1,5 @@
 // The member portal (a customer account extension) calls this app's server,
-// whose address differs between the live app (https://app.biruh.org) and
+// whose address differs between the live app (https://membership.edtechtools.shop) and
 // development (a tunnel that changes on every start). So the app writes its
 // own address to an app-owned shop metafield ($app.app_url, declared in
 // shopify.app.toml with customer account read access), and the portal reads
