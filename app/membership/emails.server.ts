@@ -22,18 +22,34 @@ import {
   reminderDue,
   renewalReminderEmail,
   seatInviteEmail,
-  welcomeEmail,
   type EmailContent,
   type EmailKind,
 } from "./emails";
 import type { Admin } from "./plans.server";
 import { sealField } from "./dataCrypto.server";
+import {
+  DEFAULT_LOOK,
+  DEFAULTS,
+  render,
+  safeColor,
+  safeLogo,
+  safePath,
+  SAMPLE,
+  signInUrl,
+  type Look,
+  type Template,
+  type TemplateKind,
+  type Vars,
+} from "./emailTemplates";
 
 const CONTEXT = `#graphql
   query membershipEmailContext($customerId: ID!) {
     shop {
       name
       contactEmail
+      primaryDomain {
+        url
+      }
       customerAccountsV2 {
         url
       }
@@ -95,6 +111,7 @@ async function deliver(
     to,
     subject: email.subject,
     text: email.text,
+    html: email.html,
   });
   console.log(`email sent: ${email.subject}`);
   return "SENT";
@@ -131,6 +148,8 @@ async function notify(
     firstName: string | null;
     planName: string;
     accountUrl: string | null;
+    storeUrl: string;
+    look: Look;
   }) => EmailContent,
 ): Promise<boolean> {
   if (emailsOff().has(kind)) return false;
@@ -152,7 +171,10 @@ async function notify(
     return false;
   }
 
+  const look = await lookFor(m.shop);
   const email = build({
+    look,
+    storeUrl: data.shop.primaryDomain?.url ?? `https://${m.shop}`,
     shopName: data.shop.name,
     firstName: data.customer.firstName ?? null,
     planName: m.plan.name,
@@ -166,7 +188,7 @@ async function notify(
     data: { membershipId, kind, key, to: sealField(to), subject: email.subject, delivery: "PENDING" },
   });
   const delivery = await deliver(to, email, {
-    shopName: data.shop.name,
+    shopName: look.senderName || data.shop.name,
     replyTo: data.shop.contactEmail ?? null,
   });
   await prisma.emailLog.update({
@@ -194,13 +216,9 @@ export async function notifyWelcome(admin: Admin, membershipId: string, now = ne
     select: { id: true },
   });
   if (imported) return false;
-  return notify(admin, membershipId, "WELCOME", emailKey("WELCOME"), (ctx) =>
-    welcomeEmail({
-      ...ctx,
-      renewalDate: m.nextRenewalAt ? longDate(m.nextRenewalAt) : null,
-      amount: money(m.nextRenewalAmount, m.currency),
-    }),
-  );
+  const template = await templateFor(m.shop, "WELCOME", m.planId);
+  if (!template.enabled) return false;
+  return notify(admin, membershipId, "WELCOME", emailKey("WELCOME"), (ctx) => welcomeContent(ctx, m, template));
 }
 
 /**
@@ -211,13 +229,142 @@ export async function notifyWelcome(admin: Admin, membershipId: string, now = ne
 export async function resendWelcome(admin: Admin, membershipId: string, now = new Date()) {
   const m = await prisma.membership.findUnique({ where: { id: membershipId } });
   if (!m || m.status !== "ACTIVE") return false;
+  const template = await templateFor(m.shop, "WELCOME", m.planId);
   return notify(admin, membershipId, "WELCOME", emailKey("WELCOME", { resendAt: now }), (ctx) =>
-    welcomeEmail({
-      ...ctx,
-      renewalDate: m.nextRenewalAt ? longDate(m.nextRenewalAt) : null,
-      amount: money(m.nextRenewalAmount, m.currency),
-    }),
+    welcomeContent(ctx, m, template),
   );
+}
+
+type Ctx = Parameters<Parameters<typeof notify>[4]>[0];
+
+function welcomeContent(
+  ctx: Ctx,
+  m: { nextRenewalAt: Date | null; nextRenewalAmount: string | null; currency: string | null },
+  template: Template,
+): EmailContent {
+  return render(template, varsFor(ctx, m), ctx.look);
+}
+
+function varsFor(
+  ctx: Ctx,
+  m: { nextRenewalAt: Date | null; nextRenewalAmount: string | null; currency: string | null },
+): Vars {
+  return {
+    first_name: ctx.firstName || "there",
+    plan_name: ctx.planName,
+    shop_name: ctx.shopName,
+    renewal_date: m.nextRenewalAt ? longDate(m.nextRenewalAt) : "",
+    amount: money(m.nextRenewalAmount, m.currency) ?? "",
+    sign_in_url: signInUrl(ctx.storeUrl, ctx.look.signInPath),
+    membership_page_url: ctx.accountUrl ?? `${ctx.storeUrl}/account`,
+    store_url: ctx.storeUrl,
+    button_color: safeColor(ctx.look.buttonColor),
+  };
+}
+
+// ── Editable templates and the look (Emails page) ───────────────────────────
+
+/** The template for one email of one plan: the merchant's, else the default. */
+export async function templateFor(
+  shop: string,
+  kind: TemplateKind,
+  planId = "",
+): Promise<Template & { custom: boolean }> {
+  const row = await prisma.emailTemplate.findUnique({ where: { shop_kind_planId: { shop, kind, planId } } });
+  if (row) return { enabled: row.enabled, subject: row.subject, html: row.html, custom: true };
+  const d = DEFAULTS[kind];
+  return { enabled: d.enabled, subject: d.subject, html: d.html, custom: false };
+}
+
+export async function saveTemplate(shop: string, kind: TemplateKind, planId: string, t: Template): Promise<void> {
+  const data = { enabled: t.enabled, subject: t.subject, html: t.html };
+  await prisma.emailTemplate.upsert({
+    where: { shop_kind_planId: { shop, kind, planId } },
+    create: { shop, kind, planId, ...data },
+    update: data,
+  });
+}
+
+export async function resetTemplate(shop: string, kind: TemplateKind, planId: string): Promise<void> {
+  await prisma.emailTemplate.deleteMany({ where: { shop, kind, planId } });
+}
+
+export async function lookFor(shop: string): Promise<Look> {
+  const row = await prisma.emailLook.findUnique({ where: { shop } });
+  return row ? { ...row, footerHtml: row.footerHtml ?? "" } : { ...DEFAULT_LOOK };
+}
+
+/** Save the look; returns a problem to show, or null. */
+export async function saveLook(shop: string, look: Look): Promise<string | null> {
+  if (look.logoUrl.trim() && !safeLogo(look.logoUrl)) return "The logo must be an https image address.";
+  if (look.accentColor.trim() && !safeColor(look.accentColor, "")) return "The accent colour must look like #c8102e.";
+  if (!safeColor(look.buttonColor, "")) return "The button colour must look like #002868.";
+  if (safePath(look.signInPath) !== look.signInPath.trim()) return "The sign-in page must be a path on your store, like /pages/member-portal.";
+  if (look.footerHtml.length > 2000 || look.senderName.length > 100) return "Keep the footer under 2,000 characters and the sender name under 100.";
+  const data = {
+    senderName: look.senderName.trim(),
+    logoUrl: look.logoUrl.trim(),
+    accentColor: look.accentColor.trim(),
+    buttonColor: look.buttonColor.trim(),
+    footerHtml: look.footerHtml.trim() || null,
+    signInPath: look.signInPath.trim(),
+  };
+  await prisma.emailLook.upsert({ where: { shop }, create: { shop, ...data }, update: data });
+  return null;
+}
+
+const SHOP_FOR_EMAILS = `#graphql
+  query membershipShopForEmails {
+    shop {
+      name
+      contactEmail
+      primaryDomain {
+        url
+      }
+      customerAccountsV2 {
+        url
+      }
+    }
+  }`;
+
+async function sampleFor(admin: Admin, shop: string, planName: string) {
+  const data = (await (await admin.graphql(SHOP_FOR_EMAILS)).json()).data?.shop;
+  const look = await lookFor(shop);
+  const storeUrl: string = data?.primaryDomain?.url ?? `https://${shop}`;
+  const vars: Vars = {
+    ...SAMPLE,
+    plan_name: planName || SAMPLE.plan_name,
+    shop_name: data?.name ?? SAMPLE.shop_name,
+    sign_in_url: signInUrl(storeUrl, look.signInPath),
+    membership_page_url: data?.customerAccountsV2?.url
+      ? membershipPageUrl(data.customerAccountsV2.url, process.env.MEMBERSHIP_PAGE_ID || MEMBERSHIP_PAGE_ID)
+      : SAMPLE.membership_page_url,
+    store_url: storeUrl,
+    button_color: safeColor(look.buttonColor),
+  };
+  return { vars, look, contactEmail: (data?.contactEmail as string | null) ?? null, shopName: (data?.name as string) ?? shop };
+}
+
+/** The draft as a member would get it, with sample values. */
+export async function previewEmail(admin: Admin, shop: string, planName: string, draft: Pick<Template, "subject" | "html">) {
+  const { vars, look } = await sampleFor(admin, shop, planName);
+  const r = render(draft, vars, look);
+  return { subject: r.subject, html: r.html };
+}
+
+/** Send the draft, with sample values, to the reply-to address or the store's contact email. */
+export async function sendTestEmail(
+  admin: Admin,
+  shop: string,
+  planName: string,
+  draft: Pick<Template, "subject" | "html">,
+): Promise<{ ok: true; to: string } | { ok: false; message: string }> {
+  const { vars, look, contactEmail, shopName } = await sampleFor(admin, shop, planName);
+  const to = process.env.EMAIL_REPLY_TO || contactEmail;
+  if (!to) return { ok: false, message: "Your store has no contact email to send the test to." };
+  const r = render(draft, vars, look);
+  const delivery = await deliver(to, { ...r, subject: `[Test] ${r.subject}` }, { shopName: look.senderName || shopName, replyTo: contactEmail });
+  return delivery === "SENT" ? { ok: true, to } : { ok: false, message: "Email sending isn't set up on the server, so the test was only logged." };
 }
 
 /** Tell a member a payment failed, and when the next try is (if any). */

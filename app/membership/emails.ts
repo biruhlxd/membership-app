@@ -53,6 +53,8 @@ export function emailKey(
 export interface EmailContent {
   subject: string;
   text: string;
+  /** HTML version (merchant-editable emails, emailTemplates.ts). */
+  html?: string;
 }
 
 const greeting = (firstName: string | null) => (firstName ? `Hi ${firstName},` : "Hello,");
@@ -70,34 +72,6 @@ export const MEMBERSHIP_PAGE_ID = "01a193a1-f5b7-726d-94ff-8e2fd8cb27eb";
 
 export const membershipPageUrl = (accountUrl: string, pageId = MEMBERSHIP_PAGE_ID) =>
   `${accountUrl.replace(/\/+$/, "")}/pages/${pageId}`;
-
-export function welcomeEmail(p: {
-  shopName: string;
-  firstName: string | null;
-  planName: string;
-  renewalDate: string | null;
-  amount: string | null;
-  accountUrl: string | null;
-}): EmailContent {
-  const renews = p.renewalDate
-    ? `It renews automatically on ${p.renewalDate}${p.amount ? ` for ${p.amount}` : ""}, and we'll remind you a week before.`
-    : "It renews automatically, and we'll remind you a week before.";
-  const where = p.accountUrl
-    ? `To see your membership, update your card or cancel, go to the Membership page in your account: ${p.accountUrl}`
-    : "To see your membership, update your card or cancel, go to the Membership page in your account.";
-  return {
-    subject: `Welcome to your ${p.planName}`,
-    text: [
-      greeting(p.firstName),
-      "",
-      `Thank you for joining ${p.shopName}. Your ${p.planName} is active. ${renews}`,
-      "",
-      where,
-      "",
-      p.shopName,
-    ].join("\n"),
-  };
-}
 
 export function renewalReminderEmail(p: {
   shopName: string;

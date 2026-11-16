@@ -15,6 +15,9 @@ const LONG_TEXT = {
   Credential: ["note", "holderName"],
   Seat: ["email"],
   EmailLog: ["to"],
+  ContractImport: ["error"],
+  EmailTemplate: ["html"],
+  EmailLook: ["footerHtml"],
 };
 
 const source = readFileSync("prisma/schema.prisma", "utf8");

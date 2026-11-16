@@ -262,10 +262,37 @@ model ContractImport {
   customerId String? // gid://shopify/Customer/...
   contractId String? // gid://shopify/SubscriptionContract/... once created
   status     String // PENDING, DONE, FAILED
-  error      String?
+  error      String? @db.Text
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@unique([shop, source, sourceId])
   @@index([shop, customerId])
+}
+
+// A merchant's wording for one email (app/membership/emailTemplates.ts).
+// planId "" = every plan; a welcome email is per plan. No row = the default.
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  shop      String
+  kind      String // WELCOME
+  planId    String   @default("")
+  enabled   Boolean  @default(true)
+  subject   String
+  html      String @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, kind, planId])
+}
+
+// How a shop's emails look and who they are from (Emails page).
+model EmailLook {
+  shop        String  @id
+  senderName  String  @default("")
+  logoUrl     String  @default("")
+  accentColor String  @default("")
+  buttonColor String  @default("#1a1a1a")
+  footerHtml  String? @db.Text
+  // Where "Sign in" in an email lands after the store's login page.
+  signInPath  String  @default("/account")
 }

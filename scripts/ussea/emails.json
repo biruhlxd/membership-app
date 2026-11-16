@@ -1,0 +1,32 @@
+{
+  "look": {
+    "senderName": "USSEA",
+    "logoUrl": "https://courses.ussea.us/bridge/ussea-logo.png",
+    "accentColor": "#C8102E",
+    "buttonColor": "#002868",
+    "footerHtml": "United States Skateboarding Education Association &middot; 501(c)(3) Non-Profit &middot; EIN 82-2720402<br><a href=\"https://ussea.us\" style=\"color:#888888\">ussea.us</a>",
+    "signInPath": "/pages/member-portal"
+  },
+  "welcomeByTag": {
+    "ussea-basic": {
+      "subject": "Welcome to USSEA — Your membership is active",
+      "html": "<h1 style=\"font-size:22px;color:#002868;margin:0 0 20px\">You&rsquo;re in. Let&rsquo;s start skating.</h1>\n<p>Hi {{first_name}},</p>\n<p>Your Skateboard Basic Membership is now active. Your course materials are ready and waiting.</p>\n<p>Sign in below and you&rsquo;ll be taken straight to your member dashboard where you can launch your first lesson.</p>\n<p><a href=\"{{sign_in_url}}\" style=\"display:inline-block;padding:13px 28px;background:{{button_color}};color:#ffffff;text-decoration:none;border-radius:3px;font-weight:bold\">Start Your Course</a></p>\n<p>If you have any questions, reply to this email or reach us at <a href=\"mailto:biruh.alemnew@ussea.us\">biruh.alemnew@ussea.us</a>.</p>\n<p>Glad to have you with us.</p>\n<p>&mdash; The USSEA Team</p>"
+    },
+    "ussea-instructor": {
+      "subject": "Welcome to USSEA — Your instructor certification is ready",
+      "html": "<h1 style=\"font-size:22px;color:#002868;margin:0 0 20px\">Your instructor certification awaits.</h1>\n<p>Hi {{first_name}},</p>\n<p>Your USSEA Instructor Certification is now active. You have full access to all certification course materials.</p>\n<p>Complete your coursework to earn your official USSEA instructor credential. Sign in below to get started.</p>\n<p style=\"font-size:14px;color:#555555;background:#F0F2F7;padding:12px 16px;border-radius:4px\">You also have <strong>safety certification requirements</strong> to complete before working with athletes. You can view and track them in your member portal once you sign in.</p>\n<p><a href=\"{{sign_in_url}}\" style=\"display:inline-block;padding:13px 28px;background:{{button_color}};color:#ffffff;text-decoration:none;border-radius:3px;font-weight:bold\">Start Your Course</a></p>\n<p>If you have any questions, reply to this email or reach us at <a href=\"mailto:biruh.alemnew@ussea.us\">biruh.alemnew@ussea.us</a>.</p>\n<p>Glad to have you with us.</p>\n<p>&mdash; The USSEA Team</p>"
+    },
+    "ussea-coach": {
+      "subject": "Welcome to USSEA — Your coach certification is ready",
+      "html": "<h1 style=\"font-size:22px;color:#002868;margin:0 0 20px\">Your coach certification awaits.</h1>\n<p>Hi {{first_name}},</p>\n<p>Your USSEA Competitive Coach Certification is now active. You have full access to all certification course materials.</p>\n<p>Complete your coursework to earn your official USSEA coaching credential. Sign in below to get started.</p>\n<p style=\"font-size:14px;color:#555555;background:#F0F2F7;padding:12px 16px;border-radius:4px\">You also have <strong>safety certification requirements</strong> to complete before working with athletes. You can view and track them in your member portal once you sign in.</p>\n<p><a href=\"{{sign_in_url}}\" style=\"display:inline-block;padding:13px 28px;background:{{button_color}};color:#ffffff;text-decoration:none;border-radius:3px;font-weight:bold\">Start Your Course</a></p>\n<p>If you have any questions, reply to this email or reach us at <a href=\"mailto:biruh.alemnew@ussea.us\">biruh.alemnew@ussea.us</a>.</p>\n<p>Glad to have you with us.</p>\n<p>&mdash; The USSEA Team</p>"
+    },
+    "ussea-org": {
+      "subject": "Welcome to USSEA — Your organization membership is active",
+      "html": "<h1 style=\"font-size:22px;color:#002868;margin:0 0 20px\">Your organization is set up.</h1>\n<p>Hi {{first_name}},</p>\n<p>Your USSEA Organization Membership is now active. As the account admin, you can add instructors, coaches, and basic members from your organization directly from your dashboard.</p>\n<p>Once you add a member, they&rsquo;ll automatically receive an email with instructions to access their courses &mdash; no extra steps needed on their end.</p>\n<p>Sign in below to go to your dashboard and start adding your team.</p>\n<p><a href=\"{{sign_in_url}}\" style=\"display:inline-block;padding:13px 28px;background:{{button_color}};color:#ffffff;text-decoration:none;border-radius:3px;font-weight:bold\">Go to Your Dashboard</a></p>\n<p>If you have any questions, reply to this email or reach us at <a href=\"mailto:biruh.alemnew@ussea.us\">biruh.alemnew@ussea.us</a>.</p>\n<p>Glad to have you with us.</p>\n<p>&mdash; The USSEA Team</p>"
+    },
+    "ussea-school": {
+      "subject": "Welcome to USSEA — Your school membership is active",
+      "html": "<h1 style=\"font-size:22px;color:#002868;margin:0 0 20px\">Your school is set up.</h1>\n<p>Hi {{first_name}},</p>\n<p>Your USSEA PE School Membership is now active. As the account admin, you can enroll Instructors and Basic Members from your school directly from your dashboard.</p>\n<p>Once you add a member, they&rsquo;ll automatically receive an email with instructions to access their courses &mdash; no extra steps needed on their end.</p>\n<p>Sign in below to go to your dashboard and start enrolling your school.</p>\n<p><a href=\"{{sign_in_url}}\" style=\"display:inline-block;padding:13px 28px;background:{{button_color}};color:#ffffff;text-decoration:none;border-radius:3px;font-weight:bold\">Go to Your Dashboard</a></p>\n<p>If you have any questions, reply to this email or reach us at <a href=\"mailto:biruh.alemnew@ussea.us\">biruh.alemnew@ussea.us</a>.</p>\n<p>Glad to have you with us.</p>\n<p>&mdash; The USSEA Team</p>"
+    }
+  }
+}
