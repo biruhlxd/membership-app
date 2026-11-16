@@ -714,6 +714,10 @@ async function syncMembersOnlyTags(admin: Admin, shop: string) {
     await syncMembersOnly(admin, shop);
     return undefined;
   } catch (error) {
+    // A custom-distribution app's checkout rule runs only on Shopify Plus
+    // (USSEA Membership): nothing to warn about on each plan save; the
+    // Members-only products page says the rule isn't active.
+    if (/only eligible for shops on the Shopify Plus plan/i.test(String(error))) return undefined;
     console.error("members-only rule sync failed:", error);
     return "The plan is saved, but the members-only checkout rule could not be updated.";
   }
