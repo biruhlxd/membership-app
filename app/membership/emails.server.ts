@@ -157,6 +157,8 @@ async function notify(
     accountUrl: string | null;
     storeUrl: string;
     look: Look;
+    /** The recipient's address, for a sign-in link that sends their code at once. */
+    email: string;
   }) => EmailContent,
 ): Promise<boolean> {
   if (emailsOff().has(kind)) return false;
@@ -181,6 +183,7 @@ async function notify(
   const look = await lookFor(m.shop);
   const email = build({
     look,
+    email: to,
     storeUrl: data.shop.primaryDomain?.url ?? `https://${m.shop}`,
     shopName: data.shop.name,
     firstName: data.customer.firstName ?? null,
@@ -304,7 +307,7 @@ function varsFor(
     shop_name: ctx.shopName,
     renewal_date: m.nextRenewalAt ? longDate(m.nextRenewalAt) : "",
     amount: money(m.nextRenewalAmount, m.currency) ?? "",
-    sign_in_url: signInUrl(ctx.storeUrl, ctx.look.signInPath),
+    sign_in_url: signInUrl(ctx.storeUrl, ctx.look.signInPath, ctx.email),
     membership_page_url: ctx.accountUrl ?? `${ctx.storeUrl}/account`,
     store_url: ctx.storeUrl,
     button_color: safeColor(ctx.look.buttonColor),
@@ -440,6 +443,7 @@ export async function sendSeatWelcome(
       renewal_date: "",
       amount: "",
       organization_name: seat.organizationName,
+      sign_in_url: signInUrl(vars.store_url, look.signInPath, seat.email),
       seat_type: seat.seatType,
     },
     look,

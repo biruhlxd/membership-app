@@ -61,7 +61,9 @@ describe("welcome email per plan", () => {
     expect(sent[0]).toMatchObject({ to: "ana@example.com", subject: "Welcome to USSEA — Your instructor certification is ready" });
     expect(sent[0].from.name).toBe("USSEA");
     expect(sent[0].html).toContain("Hi Ana,");
-    expect(sent[0].html).toContain("https://ussea.us/customer_authentication/login?return_to=%2Fpages%2Fmember-portal");
+    expect(sent[0].html).toContain(
+      "https://ussea.us/customer_authentication/login?return_to=%2Fpages%2Fmember-portal&amp;login_hint=ana%40example.com&amp;login_hint_mode=submit",
+    );
     expect(sent[0].html).toContain("border-top:4px solid #C8102E");
   });
 

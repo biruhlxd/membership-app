@@ -85,6 +85,12 @@ describe("signInUrl", () => {
     );
   });
 
+  it("with the member's email, fills it in and sends the code at once", () => {
+    expect(signInUrl("https://ussea.us", "/pages/member-portal", "ana+1@example.com")).toBe(
+      "https://ussea.us/customer_authentication/login?return_to=%2Fpages%2Fmember-portal&login_hint=ana%2B1%40example.com&login_hint_mode=submit",
+    );
+  });
+
   it("refuses anything that isn't a path on the store", () => {
     expect(safePath("https://evil.example")).toBe("/account");
     expect(safePath("/pages/member portal")).toBe("/account");

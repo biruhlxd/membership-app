@@ -159,9 +159,15 @@ export function safePath(path: string): string {
   return /^\/[A-Za-z0-9/_\-.]*$/.test(p) ? p : DEFAULT_LOOK.signInPath;
 }
 
-/** The store's login page, sending the customer on to `path` after signing in. */
-export function signInUrl(storeUrl: string, path: string): string {
-  return `${storeUrl.replace(/\/+$/, "")}/customer_authentication/login?return_to=${encodeURIComponent(safePath(path))}`;
+/**
+ * The store's login page, sending the customer on to `path` after signing in.
+ * With their email, the page is filled in and asked to send the one-time code
+ * at once (login_hint, login_hint_mode=submit), so one click reaches "enter
+ * your code".
+ */
+export function signInUrl(storeUrl: string, path: string, email?: string): string {
+  const url = `${storeUrl.replace(/\/+$/, "")}/customer_authentication/login?return_to=${encodeURIComponent(safePath(path))}`;
+  return email ? `${url}&login_hint=${encodeURIComponent(email)}&login_hint_mode=submit` : url;
 }
 
 /**
