@@ -4,14 +4,17 @@
 # the VPS. Plans are matched by their tag (ussea-basic, ussea-coach, ...);
 # run it after the plans exist. Existing look and templates are replaced, so
 # re-running is safe. Run from the project folder in Git Bash:
-#   bash scripts/ussea/apply-emails.sh <shop>.myshopify.com
+#   bash scripts/ussea/apply-emails.sh <shop>.myshopify.com        live app
+#   bash scripts/ussea/apply-emails.sh <shop>.myshopify.com dev    dev app
 set -euo pipefail
 
-SHOP="${1:?usage: apply-emails.sh <shop>.myshopify.com}"
+SHOP="${1:?usage: apply-emails.sh <shop>.myshopify.com [dev]}"
+NAME=ussea-membership
+[ "${2:-}" = "dev" ] && NAME=ussea-membership-dev
 SSH=(ssh -i ~/.ssh/demo_edtech_claude -o BatchMode=yes -o ConnectTimeout=30 root@187.124.213.192)
 JSON=$(cat "$(dirname "$0")/emails.json")
 
-"${SSH[@]}" "cd /srv/ussea-membership/app && SHOP='$SHOP' runuser -u ussea -- env SHOP='$SHOP' node --env-file=/etc/ussea-membership.env -e '
+"${SSH[@]}" "cd /srv/$NAME/app && runuser -u ussea -- env SHOP='$SHOP' node --env-file=/etc/$NAME.env -e '
 const { PrismaClient } = require(\"@prisma/client\");
 const preset = JSON.parse(require(\"fs\").readFileSync(0, \"utf8\"));
 const prisma = new PrismaClient();
