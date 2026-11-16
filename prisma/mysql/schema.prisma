@@ -251,3 +251,21 @@ model DataRequest {
 
   @@unique([shop, requestId])
 }
+
+// A subscriber moved in from another subscription app (app/routes/app.import.tsx).
+// One row per source contract, so running the import again skips it.
+model ContractImport {
+  id         String   @id @default(cuid())
+  shop       String
+  source     String // "appstle"
+  sourceId   String // the other app's contract id
+  customerId String? // gid://shopify/Customer/...
+  contractId String? // gid://shopify/SubscriptionContract/... once created
+  status     String // PENDING, DONE, FAILED
+  error      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([shop, source, sourceId])
+  @@index([shop, customerId])
+}

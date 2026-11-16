@@ -175,6 +175,13 @@ export async function notifyWelcome(admin: Admin, membershipId: string, now = ne
   const m = await prisma.membership.findUnique({ where: { id: membershipId } });
   if (!m || m.status !== "ACTIVE") return false;
   if (now.getTime() - m.createdAt.getTime() > WELCOME_WINDOW_MS) return false;
+  // Members moved in from another app (import.server.ts) already are
+  // members. PENDING: the contract webhook can beat the import's own record.
+  const imported = await prisma.contractImport.findFirst({
+    where: { shop: m.shop, customerId: m.customerId, OR: [{ contractId: m.contractId }, { status: "PENDING" }] },
+    select: { id: true },
+  });
+  if (imported) return false;
   return notify(admin, membershipId, "WELCOME", emailKey("WELCOME"), (ctx) =>
     welcomeEmail({
       ...ctx,

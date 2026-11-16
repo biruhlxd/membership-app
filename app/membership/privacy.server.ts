@@ -58,8 +58,9 @@ export async function redactCustomer(shop: string, customerId: number | string) 
   const ids = (await prisma.membership.findMany({ where, select: { id: true } })).map(
     (m) => m.id,
   );
-  const [credentials, emails, attempts, memberships] = await prisma.$transaction([
+  const [credentials, , emails, attempts, memberships] = await prisma.$transaction([
     prisma.credential.deleteMany({ where }),
+    prisma.contractImport.deleteMany({ where }),
     prisma.emailLog.deleteMany({ where: { membershipId: { in: ids } } }),
     prisma.billingAttempt.deleteMany({ where: { membershipId: { in: ids } } }),
     prisma.membership.deleteMany({ where }),
@@ -79,6 +80,7 @@ export async function redactShop(shop: string) {
     prisma.shopSetup.deleteMany({ where: { shop } }),
     prisma.accessLog.deleteMany({ where: { shop } }),
     prisma.dataRequest.deleteMany({ where: { shop } }),
+    prisma.contractImport.deleteMany({ where: { shop } }),
   ]);
   const [emails, attempts, memberships, plans, sessions] = await prisma.$transaction([
     prisma.emailLog.deleteMany({ where: { membershipId: { in: ids } } }),
