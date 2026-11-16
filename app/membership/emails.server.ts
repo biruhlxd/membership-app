@@ -89,7 +89,9 @@ async function deliver(
   }
   await mailer.sendMail({
     from: { name: from.shopName, address: process.env.EMAIL_FROM! },
-    replyTo: from.replyTo ?? undefined,
+    // EMAIL_REPLY_TO: one reply address for the whole server (a single-store
+    // copy); otherwise the shop's contact email.
+    replyTo: process.env.EMAIL_REPLY_TO || from.replyTo || undefined,
     to,
     subject: email.subject,
     text: email.text,
