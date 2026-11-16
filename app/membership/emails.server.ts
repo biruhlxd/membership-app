@@ -103,6 +103,13 @@ async function deliver(
     console.log(`email not sent (SMTP not set up): ${email.subject}`);
     return "LOGGED";
   }
+  // EMAIL_DIVERT_TO (test servers, like Moodle's divertallemailsto): every
+  // email goes to that address instead, the real recipient in the subject.
+  const divert = process.env.EMAIL_DIVERT_TO;
+  if (divert) {
+    email = { ...email, subject: `[to ${to}] ${email.subject}` };
+    to = divert;
+  }
   await mailer.sendMail({
     from: { name: from.shopName, address: process.env.EMAIL_FROM! },
     // EMAIL_REPLY_TO: one reply address for the whole server (a single-store

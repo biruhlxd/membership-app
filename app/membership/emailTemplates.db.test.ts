@@ -84,6 +84,17 @@ describe("welcome email per plan", () => {
     expect(await lookFor(SHOP)).toEqual(DEFAULT_LOOK);
   });
 
+  it("diverts every email to EMAIL_DIVERT_TO on a test server", async () => {
+    process.env.EMAIL_DIVERT_TO = "biruh@test.invalid";
+    try {
+      expect(await notifyWelcome(shopify().admin, membershipId)).toBe(true);
+    } finally {
+      delete process.env.EMAIL_DIVERT_TO;
+    }
+    expect(sent[0].to).toBe("biruh@test.invalid");
+    expect(sent[0].subject).toBe("[to ana@example.com] Welcome to your Instructor Certification");
+  });
+
   it("sends a test to the store's contact email", async () => {
     const result = await sendTestEmail(shopify().admin, SHOP, "Coach", { subject: "Hi {{first_name}}", html: "<p>{{plan_name}}</p>" });
     expect(result).toEqual({ ok: true, to: "staff@ussea.test" });
