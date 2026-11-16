@@ -1,7 +1,7 @@
 # USSEA Membership: the same code as Biruh Membership, as a custom-distribution
-# app for the USSEA store only (Biruh Tech Partner org). Hosting: USSEA GoDaddy
-# (dev.ussea.us account), zip from scripts/package-ussea.sh.
-# APP_PLAN_FIXED in its environment sets the app plan (no Shopify app billing).
+# app for the USSEA store only (Biruh Tech Partner org). Hosting: Biruh's Hostinger
+# VPS, deploy with scripts/deploy-ussea.sh.
+# APP_PLAN_FIXED in /etc/ussea-membership.env sets the app plan (no Shopify app billing).
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "1f4873f4fdc200a8647f6cca87b91cf9"
