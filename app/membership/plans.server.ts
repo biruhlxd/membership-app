@@ -184,8 +184,12 @@ export async function createPlan(
       },
     });
     result = (await response.json()).data?.sellingPlanGroupCreate;
-  } catch {
-    return { ok: false, error: "Shopify could not create the plan. Try again." };
+  } catch (error) {
+    // GraphQL-level errors (a missing scope, a bad input) arrive as an exception.
+    console.error(`plan creation for ${shop} failed:`, error);
+    const body = (error as { body?: { errors?: { graphQLErrors?: { message: string }[] } } }).body;
+    const reason = body?.errors?.graphQLErrors?.map((e) => e.message).join(" ");
+    return { ok: false, error: reason ? `Shopify could not create the plan: ${reason}` : "Shopify could not create the plan. Try again." };
   }
   const errors: { message: string }[] = result?.userErrors ?? [];
   const groupId: string | undefined = result?.sellingPlanGroup?.id;
