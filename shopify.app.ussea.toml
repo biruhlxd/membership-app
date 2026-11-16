@@ -1,10 +1,11 @@
 # USSEA Membership: the same code as Biruh Membership, as a custom-distribution
-# app for the USSEA store only (Biruh Tech Partner org). Server: scripts/deploy-live.sh ussea.
-# APP_PLAN_FIXED in its env.json sets the app plan (no Shopify app billing).
+# app for the USSEA store only (Biruh Tech Partner org). Hosting: USSEA GoDaddy
+# (dev.ussea.us account), zip from scripts/package-ussea.sh.
+# APP_PLAN_FIXED in its environment sets the app plan (no Shopify app billing).
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "REPLACE_WITH_USSEA_MEMBERSHIP_CLIENT_ID"
-application_url = "https://ussea-membership.edtechtools.shop"
+client_id = "1f4873f4fdc200a8647f6cca87b91cf9"
+application_url = "https://membership-app.ussea.us"
 embedded = true
 name = "USSEA Membership"
 
@@ -75,7 +76,7 @@ access.admin = "merchant_read"
 access.customer_account = "read"
 
 [auth]
-redirect_urls = [ "https://ussea-membership.edtechtools.shop/auth/callback", "https://ussea-membership.edtechtools.shop/api/auth" ]
+redirect_urls = [ "https://membership-app.ussea.us/auth/callback", "https://membership-app.ussea.us/api/auth" ]
 
 [build]
 # Fixed address; development uses the dev app (shopify.app.dev.toml).

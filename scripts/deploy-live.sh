@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 # Deploys the committed code to the live app at https://membership.edtechtools.shop
 # (cPanel Node.js app on biruh.org). Run from the project folder in Git Bash:
-#   bash scripts/deploy-live.sh          Biruh Membership
-#   bash scripts/deploy-live.sh ussea    USSEA Membership (same code, its own
-#                                        app root, secrets, database and address)
+#   bash scripts/deploy-live.sh
 # Then, if shopify.app.toml or extensions changed: npm run deploy
-# (USSEA: npx shopify app deploy --config ussea)
+# (USSEA Membership is hosted elsewhere: scripts/package-ussea.sh.)
 #
 # The account is shared with Biruh's WordPress and Moodle sites and capped at
 # 100 processes, counting threads (CloudLinux NPROC). On 2026-11-01 the app
@@ -21,14 +19,10 @@
 #                                 job_secret, run-renewals.sh (hourly cron)
 #   ~/biruh-membership-engine     Prisma engine (PRISMA_QUERY_ENGINE_LIBRARY)
 #   ~/biruh-membership-logs       app.log
-# USSEA Membership uses the same layout under the name ussea-membership.
 set -euo pipefail
 
-case "${1:-live}" in
-  live) APP=biruh-membership; URL=https://membership.edtechtools.shop ;;
-  ussea) APP=ussea-membership; URL=https://ussea-membership.edtechtools.shop ;;
-  *) echo "Unknown target $1 (live or ussea)." >&2; exit 1 ;;
-esac
+APP=biruh-membership
+URL=https://membership.edtechtools.shop
 
 SSH=(ssh -i ~/.ssh/biruh_org_claude -o BatchMode=yes -o ConnectTimeout=30 biruhorg@192.250.229.92)
 
