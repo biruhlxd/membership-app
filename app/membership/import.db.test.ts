@@ -102,6 +102,17 @@ describe("importRow", () => {
     expect(sent).toHaveLength(0);
   });
 
+  it("sends no email of a kind listed in EMAILS_OFF", async () => {
+    const { admin } = shopify();
+    const m = await prisma.membership.create({
+      data: { shop: SHOP, contractId: "gid://shopify/SubscriptionContract/1", customerId: ANA, planId: setup.planId, contractStatus: "ACTIVE", status: "ACTIVE" },
+    });
+    process.env.EMAILS_OFF = "welcome, LAPSED";
+    expect(await notifyWelcome(admin, m.id)).toBe(false);
+    delete process.env.EMAILS_OFF;
+    expect(await notifyWelcome(admin, m.id)).toBe(true);
+  });
+
   it("skips a customer without a saved card", async () => {
     const { admin, calls } = shopify({ cards: [] });
     expect(await importRow(admin, SHOP, "appstle", row, setup)).toEqual({ imported: false, reason: "customer has no saved card in Shopify" });

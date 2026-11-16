@@ -110,6 +110,15 @@ const money = (amount: string | null, currency: string | null) =>
  * Send one email about a membership, at most once per `key`. Returns false
  * when it was already sent or the member has no email address.
  */
+/**
+ * Emails the server never sends (env EMAILS_OFF, e.g. "WELCOME"): for a
+ * single-store copy where another system already sends them (USSEA's
+ * welcome comes from its own onboarding).
+ */
+function emailsOff(): Set<string> {
+  return new Set((process.env.EMAILS_OFF ?? "").split(",").map((k) => k.trim().toUpperCase()).filter(Boolean));
+}
+
 async function notify(
   admin: Admin,
   membershipId: string,
@@ -122,6 +131,7 @@ async function notify(
     accountUrl: string | null;
   }) => EmailContent,
 ): Promise<boolean> {
+  if (emailsOff().has(kind)) return false;
   const already = await prisma.emailLog.findUnique({
     where: { membershipId_kind_key: { membershipId, kind, key } },
   });
