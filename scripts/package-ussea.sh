@@ -28,7 +28,8 @@ git archive --format=tar HEAD | tar -xf - -C "$STAGE"
 cp -r build "$STAGE/"
 
 cd "$STAGE"
-rm -rf extensions docs .github app/test prisma/dev.sqlite
+# Only what runs: no notes (CLAUDE.md has server details), tests or tools.
+rm -rf extensions docs .github app/test prisma/dev.sqlite scripts Dockerfile AGENTS.md CHANGES.md CLAUDE.md README.md
 find app -name "*.test.ts" -delete
 rm -rf prisma/migrations prisma/schema.prisma
 mv prisma/mysql/schema.prisma prisma/schema.prisma
