@@ -3,7 +3,7 @@ import { useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
-import { refreshAppPlan, saveAppPlan, testCharges } from "../membership/appBilling.server";
+import { fixedAppPlan, refreshAppPlan, saveAppPlan, testCharges } from "../membership/appBilling.server";
 import {
   APP_PLANS,
   APP_PRICES,
@@ -19,11 +19,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const context = await authenticate.admin(request);
   const plan = await refreshAppPlan(context);
   const memberships = await prisma.membership.findMany({ where: { shop: context.session.shop }, select: { status: true } });
-  return { plan, activeMembers: memberships.filter((m) => grantsAccess(m.status as MembershipStatus)).length };
+  return {
+    plan,
+    fixed: fixedAppPlan() !== null,
+    activeMembers: memberships.filter((m) => grantsAccess(m.status as MembershipStatus)).length,
+  };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, billing, session } = await authenticate.admin(request);
+  if (fixedAppPlan()) return { message: "This app's plan is set by your agreement and can't be changed here." };
   const form = await request.formData();
   const isTest = await testCharges(admin);
   const choice = String(form.get("plan"));
@@ -55,11 +60,21 @@ const DESCRIPTIONS: Record<PaidAppPlan, string[]> = {
 };
 
 export default function Billing() {
-  const { plan, activeMembers } = useLoaderData<typeof loader>();
+  const { plan, fixed, activeMembers } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const busy = fetcher.state !== "idle";
   const short = (name: string) => name.replace("Biruh Membership ", "");
   const limit = appFeaturesOf(plan).members;
+
+  if (fixed) {
+    return (
+      <s-page heading="App plan">
+        <s-section>
+          <s-paragraph>{`Your plan: ${short(plan)}, under your agreement. Nothing is charged through Shopify.`}</s-paragraph>
+        </s-section>
+      </s-page>
+    );
+  }
 
   return (
     <s-page heading="App plan">

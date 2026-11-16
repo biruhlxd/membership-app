@@ -1,0 +1,82 @@
+# USSEA Membership: the same code as Biruh Membership, as a custom-distribution
+# app for the USSEA store only (Biruh Tech Partner org). Server: scripts/deploy-live.sh ussea.
+# APP_PLAN_FIXED in its env.json sets the app plan (no Shopify app billing).
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "REPLACE_WITH_USSEA_MEMBERSHIP_CLIENT_ID"
+application_url = "https://ussea-membership.edtechtools.shop"
+embedded = true
+name = "USSEA Membership"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+# The subscription scopes (read_customer_payment_methods, read/write_own_subscription_contracts) are
+# protected: request them for this app in the Dev Dashboard (API access requests).
+scopes = "read_customers,write_customers,read_products,write_products,read_purchase_options,write_purchase_options,read_customer_payment_methods,read_own_subscription_contracts,write_own_subscription_contracts,read_discounts,write_discounts,read_validations,write_validations,customer_read_customers,customer_read_own_subscription_contracts,customer_write_own_subscription_contracts"
+
+[webhooks]
+# Keep in step with apiVersion in app/shopify.server.ts.
+api_version = "2026-10"
+
+  # Handled by: /app/routes/webhooks.app.uninstalled.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  # Handled by: /app/routes/webhooks.app.scopes_update.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+  # Handled by: /app/routes/webhooks.subscription_contracts.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/subscription_contracts"
+  topics = [
+    "subscription_contracts/create",
+    "subscription_contracts/update",
+    "subscription_contracts/activate",
+    "subscription_contracts/pause",
+    "subscription_contracts/cancel",
+    "subscription_contracts/expire",
+    "subscription_contracts/fail",
+  ]
+
+  # Handled by: /app/routes/webhooks.subscription_billing_attempts.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/subscription_billing_attempts"
+  topics = [
+    "subscription_billing_attempts/success",
+    "subscription_billing_attempts/failure",
+    "subscription_billing_attempts/challenged",
+  ]
+
+  # Handled by: /app/routes/webhooks.customers.tsx (tags → credentials)
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers"
+  topics = [ "customers/update" ]
+
+  # Handled by: /app/routes/webhooks.app.subscriptions_update.tsx (app plan changes)
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/subscriptions_update"
+  topics = [ "app_subscriptions/update" ]
+
+  # Mandatory compliance topics for public apps.
+  # See: https://shopify.dev/docs/apps/build/privacy-law-compliance
+  # Handled by: /app/routes/webhooks.compliance.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/compliance"
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+
+# Where this app's server is, for the member portal (app/membership/appUrl.server.ts).
+[shop.metafields.app.app_url]
+name = "USSEA Membership"
+type = "url"
+access.admin = "merchant_read"
+access.customer_account = "read"
+
+[auth]
+redirect_urls = [ "https://ussea-membership.edtechtools.shop/auth/callback", "https://ussea-membership.edtechtools.shop/api/auth" ]
+
+[build]
+# Fixed address; development uses the dev app (shopify.app.dev.toml).
+automatically_update_urls_on_dev = false

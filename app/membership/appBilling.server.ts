@@ -26,7 +26,22 @@ export async function testCharges(admin: AdminContext["admin"]): Promise<boolean
   return json.data?.shop?.plan?.partnerDevelopment !== false;
 }
 
+/**
+ * A plan set by the server instead of Shopify billing (env APP_PLAN_FIXED,
+ * e.g. "Biruh Membership Association"): for a single-store copy of the app
+ * (USSEA Membership, custom distribution), paid under its own agreement.
+ */
+export function fixedAppPlan(): AppPlanName | null {
+  const plan = process.env.APP_PLAN_FIXED;
+  return plan && (APP_PLANS as readonly string[]).includes(plan) ? (plan as AppPlanName) : null;
+}
+
 export async function refreshAppPlan(context: Pick<AdminContext, "admin" | "billing" | "session">): Promise<AppPlanName> {
+  const fixed = fixedAppPlan();
+  if (fixed) {
+    await saveAppPlan(context.session.shop, fixed);
+    return fixed;
+  }
   const isTest = await testCharges(context.admin);
   const check = await context.billing.check({ plans: [...APP_PLANS], isTest });
   const plan = appPlanFromSubscriptions(check.appSubscriptions.map((s) => ({ name: s.name, status: s.status })));

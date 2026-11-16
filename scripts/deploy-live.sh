@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Deploys the committed code to the live app at https://membership.edtechtools.shop
 # (cPanel Node.js app on biruh.org). Run from the project folder in Git Bash:
-#   bash scripts/deploy-live.sh
+#   bash scripts/deploy-live.sh          Biruh Membership
+#   bash scripts/deploy-live.sh ussea    USSEA Membership (same code, its own
+#                                        app root, secrets, database and address)
 # Then, if shopify.app.toml or extensions changed: npm run deploy
+# (USSEA: npx shopify app deploy --config ussea)
 #
 # The account is shared with Biruh's WordPress and Moodle sites and capped at
 # 100 processes, counting threads (CloudLinux NPROC). On 2026-11-01 the app
@@ -18,7 +21,14 @@
 #                                 job_secret, run-renewals.sh (hourly cron)
 #   ~/biruh-membership-engine     Prisma engine (PRISMA_QUERY_ENGINE_LIBRARY)
 #   ~/biruh-membership-logs       app.log
+# USSEA Membership uses the same layout under the name ussea-membership.
 set -euo pipefail
+
+case "${1:-live}" in
+  live) APP=biruh-membership; URL=https://membership.edtechtools.shop ;;
+  ussea) APP=ussea-membership; URL=https://ussea-membership.edtechtools.shop ;;
+  *) echo "Unknown target $1 (live or ussea)." >&2; exit 1 ;;
+esac
 
 SSH=(ssh -i ~/.ssh/biruh_org_claude -o BatchMode=yes -o ConnectTimeout=30 biruhorg@192.250.229.92)
 
@@ -34,7 +44,7 @@ git archive --format=tar HEAD > "$PKG"
 tar --force-local -rf "$PKG" build
 
 REMOTE=$(cat <<'EOF'
-APP=biruh-membership
+export APP
 threads() { ps -u biruhorg -L --no-headers | wc -l; }
 # This app's Node processes (pid and thread count): those running from its
 # folder. Moodle Bridge runs on the same account; never count or stop it.
@@ -65,22 +75,22 @@ cd ~/$APP
 # happens locally. The Prisma engines download is run explicitly.
 npm ci --omit=dev --ignore-scripts --no-audit --no-fund 2>&1 | tail -1
 node node_modules/@prisma/engines/scripts/postinstall.js 2>&1 | tail -1
-export DATABASE_URL="$(node -e "console.log(JSON.parse(require('fs').readFileSync(process.env.HOME+'/biruh-membership-secrets/env.json','utf8')).DATABASE_URL)")"
+export DATABASE_URL="$(node -e "console.log(JSON.parse(require('fs').readFileSync(process.env.HOME+'/'+process.env.APP+'-secrets/env.json','utf8')).DATABASE_URL)")"
 npx prisma generate --schema prisma/mysql/schema.prisma 2>&1 | tail -1
 npx prisma migrate deploy --schema prisma/mysql/schema.prisma 2>&1 | tail -1
-mkdir -p ~/biruh-membership-engine
-cp ~/nodevenv/$APP/22/lib/node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node ~/biruh-membership-engine/
+mkdir -p ~/$APP-engine
+cp ~/nodevenv/$APP/22/lib/node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node ~/$APP-engine/
 
 cloudlinux-selector start --json --interpreter nodejs --app-root $APP >/dev/null
 sleep 2
 # A cold start can take some seconds: ask again for up to 30 seconds.
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  CODE=$(curl -s -o /dev/null -w "%{http_code}" https://membership.edtechtools.shop/)
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" $URL/)
   case "$CODE" in 2*|3*) break ;; esac
   sleep 3
 done
-echo "https://membership.edtechtools.shop -> HTTP $CODE"
-for i in 1 2 3 4 5; do curl -s -o /dev/null https://membership.edtechtools.shop/ & done; wait
+echo "$URL -> HTTP $CODE"
+for i in 1 2 3 4 5; do curl -s -o /dev/null $URL/ & done; wait
 sleep 3
 COPIES=$(copies | wc -l); MAXT=$(copies | awk 'BEGIN{m=0}{if($2>m)m=$2}END{print m}'); TOTAL=$(threads)
 echo "under load: copies=$COPIES, most threads in one copy=$MAXT, account threads=$TOTAL"
@@ -91,13 +101,13 @@ if [ "$COPIES" -gt 2 ] || [ "$MAXT" -gt 20 ] || [ "$TOTAL" -gt 60 ]; then
   exit 2
 fi
 A=$(ls build/client/assets | grep "^entry.client" | head -1)
-curl -s -o /dev/null -w "scripts -> HTTP %{http_code}\n" https://membership.edtechtools.shop/assets/$A
+curl -s -o /dev/null -w "scripts -> HTTP %{http_code}\n" $URL/assets/$A
 # Mark this deploy as finished, so the next one keeps it as the fallback.
 touch ~/$APP/.deployed
 echo "after: $(ps -u biruhorg --no-headers | wc -l) processes, $(threads) threads"
 EOF
 )
 
-"${SSH[@]}" "$REMOTE" < "$PKG"
+"${SSH[@]}" "APP=$APP URL=$URL; $REMOTE" < "$PKG"
 rm -f "$PKG"
-echo "Deployed $(git rev-parse --short HEAD)."
+echo "Deployed $(git rev-parse --short HEAD) to $URL."
