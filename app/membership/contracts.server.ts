@@ -238,3 +238,82 @@ async function syncCustomerTags(
   }
   return changes;
 }
+
+const REFUNDED_ORDER = `#graphql
+  query membershipRefundedOrder($id: ID!) {
+    order(id: $id) {
+      id
+      displayFinancialStatus
+      customer {
+        id
+      }
+      lineItems(first: 20) {
+        nodes {
+          sellingPlan {
+            sellingPlanId
+          }
+        }
+      }
+    }
+  }`;
+
+const CANCEL_CONTRACT = `#graphql
+  mutation membershipContractCancel($id: ID!) {
+    subscriptionContractCancel(subscriptionContractId: $id) {
+      contract {
+        id
+        status
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
+/**
+ * A fully refunded order (refunds/create) ends the memberships it paid for
+ * at once (Biruh's rule for USSEA, 2026-11-16): the contract is cancelled, no
+ * access is kept to the end of the period, and the plan tag goes. A partial
+ * refund changes nothing. Returns the ids of the memberships ended.
+ */
+export async function endOnRefund(admin: Admin, shop: string, orderId: string, now = new Date()): Promise<string[]> {
+  const { order } = await gql<{
+    order: {
+      displayFinancialStatus: string | null;
+      customer: { id: string } | null;
+      lineItems: { nodes: { sellingPlan: { sellingPlanId: string | null } | null }[] };
+    } | null;
+  }>(admin, REFUNDED_ORDER, { id: orderId });
+  if (!order?.customer || order.displayFinancialStatus !== "REFUNDED") return [];
+  const sellingPlanIds = order.lineItems.nodes
+    .map((l) => l.sellingPlan?.sellingPlanId)
+    .filter((id): id is string => Boolean(id));
+  if (sellingPlanIds.length === 0) return [];
+  const memberships = await prisma.membership.findMany({
+    where: {
+      shop,
+      customerId: order.customer.id,
+      plan: { sellingPlanId: { in: sellingPlanIds } },
+      status: { not: "CANCELLED" },
+    },
+    select: { id: true, contractId: true, contractStatus: true },
+  });
+  for (const m of memberships) {
+    if (m.contractStatus !== "CANCELLED" && m.contractStatus !== "EXPIRED") {
+      const { subscriptionContractCancel: result } = await gql<{
+        subscriptionContractCancel: { userErrors: { message: string }[] } | null;
+      }>(admin, CANCEL_CONTRACT, { id: m.contractId });
+      if (result?.userErrors.length) {
+        console.warn(`refund: contract ${m.contractId} not cancelled: ${result.userErrors.map((e) => e.message).join(" ")}`);
+      }
+    }
+    // accessEndsAt = now: the cancel webhook that follows keeps it (syncContract).
+    await prisma.membership.update({
+      where: { id: m.id },
+      data: { contractStatus: "CANCELLED", status: "CANCELLED", accessEndsAt: now, welcomeDueAt: null },
+    });
+  }
+  if (memberships.length > 0) await syncTagsForCustomer(admin, shop, order.customer.id);
+  return memberships.map((m) => m.id);
+}

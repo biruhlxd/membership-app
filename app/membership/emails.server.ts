@@ -212,7 +212,49 @@ const WELCOME_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
  * Welcome a new member with the link to their Membership page, once. Members
  * who joined before this email existed don't get it late.
  */
+/** How long the welcome waits for Moodle's "account ready" before going anyway. */
+export const WELCOME_WAIT_MS = 10 * 60 * 1000;
+
+/**
+ * Welcome a new member. With a Moodle link (MOODLE_LINK_SECRET), the email
+ * waits until Moodle says the account is ready (welcomeReady), so its sign-in
+ * button works the moment it arrives; after WELCOME_WAIT_MS it goes anyway
+ * (sendDueWelcomes). Without one it goes now.
+ */
 export async function notifyWelcome(admin: Admin, membershipId: string, now = new Date()) {
+  if (!process.env.MOODLE_LINK_SECRET) return sendWelcome(admin, membershipId, now);
+  const m = await prisma.membership.findUnique({ where: { id: membershipId } });
+  if (!m || m.welcomeDueAt || m.status !== "ACTIVE") return false;
+  if (await prisma.emailLog.findUnique({ where: { membershipId_kind_key: { membershipId, kind: "WELCOME", key: emailKey("WELCOME") } } })) {
+    return false;
+  }
+  await prisma.membership.update({ where: { id: m.id }, data: { welcomeDueAt: new Date(now.getTime() + WELCOME_WAIT_MS) } });
+  return false;
+}
+
+/** Moodle says this customer's account is ready: send their waiting welcome. */
+export async function welcomeReady(admin: Admin, shop: string, customerId: string, now = new Date()) {
+  const waiting = await prisma.membership.findMany({ where: { shop, customerId, welcomeDueAt: { not: null } }, select: { id: true } });
+  let sent = 0;
+  for (const { id } of waiting) {
+    await prisma.membership.update({ where: { id }, data: { welcomeDueAt: null } });
+    if (await sendWelcome(admin, id, now)) sent++;
+  }
+  return sent;
+}
+
+/** Welcomes whose wait for Moodle is over (the email job, every few minutes). */
+export async function sendDueWelcomes(admin: Admin, shop: string, now = new Date()) {
+  const due = await prisma.membership.findMany({ where: { shop, welcomeDueAt: { lte: now } }, select: { id: true } });
+  let sent = 0;
+  for (const { id } of due) {
+    await prisma.membership.update({ where: { id }, data: { welcomeDueAt: null } });
+    if (await sendWelcome(admin, id, now)) sent++;
+  }
+  return sent;
+}
+
+async function sendWelcome(admin: Admin, membershipId: string, now: Date) {
   const m = await prisma.membership.findUnique({ where: { id: membershipId } });
   if (!m || m.status !== "ACTIVE") return false;
   if (now.getTime() - m.createdAt.getTime() > WELCOME_WINDOW_MS) return false;
@@ -266,6 +308,8 @@ function varsFor(
     membership_page_url: ctx.accountUrl ?? `${ctx.storeUrl}/account`,
     store_url: ctx.storeUrl,
     button_color: safeColor(ctx.look.buttonColor),
+    organization_name: "",
+    seat_type: "",
   };
 }
 
@@ -372,6 +416,36 @@ export async function sendTestEmail(
   const r = render(draft, vars, look);
   const delivery = await deliver(to, { ...r, subject: `[Test] ${r.subject}` }, { shopName: look.senderName || shopName, replyTo: contactEmail });
   return delivery === "SENT" ? { ok: true, to } : { ok: false, message: "Email sending isn't set up on the server, so the test was only logged." };
+}
+
+/**
+ * Welcome someone an organization gave a seat to (Moodle's seat_assigned
+ * message). They have no membership in this app, so the once-only check is
+ * Moodle's event id (moodleLink.server.ts), not EmailLog.
+ */
+export async function sendSeatWelcome(
+  admin: Admin,
+  shop: string,
+  seat: { email: string; firstName: string; organizationName: string; seatType: string },
+): Promise<boolean> {
+  const template = await templateFor(shop, "SEAT_WELCOME");
+  if (!template.enabled || !seat.email.includes("@")) return false;
+  const { vars, look, contactEmail, shopName } = await sampleFor(admin, shop, "");
+  const r = render(
+    template,
+    {
+      ...vars,
+      first_name: seat.firstName || "there",
+      plan_name: "",
+      renewal_date: "",
+      amount: "",
+      organization_name: seat.organizationName,
+      seat_type: seat.seatType,
+    },
+    look,
+  );
+  const delivery = await deliver(seat.email, r, { shopName: look.senderName || shopName, replyTo: contactEmail });
+  return delivery === "SENT";
 }
 
 /** Tell a member a payment failed, and when the next try is (if any). */

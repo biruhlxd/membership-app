@@ -241,6 +241,7 @@ export async function refreshSchedule(admin: Admin, membershipId: string) {
       where: { id: m.id },
       data: { nextRenewalAt: null, nextRenewalAmount: null },
     });
+    await writeRenewalDate(admin, m.shop, m.customerId);
     return;
   }
   const cycles = await upcomingCycles(admin, m.id, m.contractId);
@@ -265,6 +266,53 @@ export async function refreshSchedule(admin: Admin, membershipId: string) {
       currency: total?.currency ?? m.currency,
     },
   });
+  await writeRenewalDate(admin, m.shop, m.customerId);
+}
+
+const RENEWAL_DATE_SET = `#graphql
+  mutation membershipRenewalMetafield($metafields: [MetafieldsSetInput!]!) {
+    metafieldsSet(metafields: $metafields) {
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
+const RENEWAL_DATE_DELETE = `#graphql
+  mutation membershipRenewalMetafieldDelete($metafields: [MetafieldIdentifierInput!]!) {
+    metafieldsDelete(metafields: $metafields) {
+      userErrors {
+        field
+        message
+      }
+    }
+  }`;
+
+/**
+ * The customer's next renewal date as a customer metafield, membership.renews_on
+ * (date), for the theme and for other systems (USSEA's Moodle reads it into
+ * its membership record). The latest among their active memberships; removed
+ * when none renews. Never stops the caller.
+ */
+export async function writeRenewalDate(admin: Admin, shop: string, customerId: string) {
+  try {
+    const latest = await prisma.membership.findFirst({
+      where: { shop, customerId, contractStatus: "ACTIVE", nextRenewalAt: { not: null } },
+      orderBy: { nextRenewalAt: "desc" },
+      select: { nextRenewalAt: true },
+    });
+    const field = { ownerId: customerId, namespace: "membership", key: "renews_on" };
+    if (latest?.nextRenewalAt) {
+      await gql(admin, RENEWAL_DATE_SET, {
+        metafields: [{ ...field, type: "date", value: latest.nextRenewalAt.toISOString().slice(0, 10) }],
+      });
+    } else {
+      await gql(admin, RENEWAL_DATE_DELETE, { metafields: [field] });
+    }
+  } catch (error) {
+    console.error(`renewal date of ${customerId} on ${shop} not written:`, error);
+  }
 }
 
 export type RenewResult =

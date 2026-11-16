@@ -82,6 +82,9 @@ model Membership {
   lastPaidAt        DateTime?
   // Set when the member cancels: access lasts until the paid period ends.
   accessEndsAt      DateTime?
+  // With a Moodle link (moodleLink.server.ts), the welcome waits for Moodle's
+  // "account ready" message, or this time, whichever comes first.
+  welcomeDueAt      DateTime?
   // Set when a credential this plan checks at renewal has lapsed: why the
   // renewal is on hold (rule block) or flagged (rule flag). Null when fine.
   credentialIssue   String? @db.Text
@@ -295,4 +298,16 @@ model EmailLook {
   footerHtml  String? @db.Text
   // Where "Sign in" in an email lands after the store's login page.
   signInPath  String  @default("/account")
+}
+
+// Messages from Moodle (local_ussea) through the signed Moodle link, once
+// each by Moodle's event id (moodleLink.server.ts).
+model MoodleEvent {
+  id         String   @id @default(cuid())
+  shop       String
+  eventId    String
+  type       String // account_ready, seat_assigned
+  receivedAt DateTime @default(now())
+
+  @@unique([shop, eventId])
 }

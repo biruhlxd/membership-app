@@ -4,7 +4,7 @@ import { useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
-import { DEFAULTS, PLACEHOLDERS, unknownPlaceholders, type Look } from "../membership/emailTemplates";
+import { DEFAULTS, PLACEHOLDERS, unknownPlaceholders, type Look, type TemplateKind } from "../membership/emailTemplates";
 import {
   lookFor,
   previewEmail,
@@ -26,7 +26,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const plans = await prisma.membershipPlan.findMany({ where: { shop }, select: { id: true, name: true }, orderBy: { name: "asc" } });
   return {
     look: await lookFor(shop),
-    welcomes: await Promise.all(plans.map(async (p) => ({ planId: p.id, planName: p.name, ...(await templateFor(shop, "WELCOME", p.id)) }))),
+    welcomes: await Promise.all(
+      plans.map(async (p) => ({ kind: "WELCOME" as TemplateKind, planId: p.id, planName: p.name, ...(await templateFor(shop, "WELCOME", p.id)) })),
+    ),
+    seatWelcome: { kind: "SEAT_WELCOME" as TemplateKind, planId: "", planName: "", ...(await templateFor(shop, "SEAT_WELCOME")) },
     sending: Boolean(process.env.SMTP_HOST && process.env.EMAIL_FROM),
     welcomeOff: (process.env.EMAILS_OFF ?? "").toUpperCase().includes("WELCOME"),
   };
@@ -50,7 +53,12 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Result> =
     });
     return problem ? { ok: false, message: problem } : { ok: true, message: "Saved. Every email uses it from now on." };
   }
-  const plan = await prisma.membershipPlan.findFirst({ where: { shop, id: String(form.get("planId")) }, select: { id: true, name: true } });
+  // A plan's welcome, or the one sub-account welcome (no plan).
+  const kind: TemplateKind = form.get("kind") === "SEAT_WELCOME" ? "SEAT_WELCOME" : "WELCOME";
+  const plan =
+    kind === "SEAT_WELCOME"
+      ? { id: "", name: "" }
+      : await prisma.membershipPlan.findFirst({ where: { shop, id: String(form.get("planId")) }, select: { id: true, name: true } });
   if (!plan) return { ok: false, message: "Unknown plan." };
   const draft = { subject: String(form.get("subject") ?? ""), html: String(form.get("html") ?? "") };
   if (draft.subject.length > MAX_SUBJECT || draft.html.length > MAX_HTML) {
@@ -59,7 +67,7 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Result> =
   switch (intent) {
     case "save": {
       if (!draft.subject.trim() || !draft.html.trim()) return { ok: false, message: "The subject and the HTML can't be empty." };
-      await saveTemplate(shop, "WELCOME", plan.id, { enabled: form.get("enabled") === "true", ...draft });
+      await saveTemplate(shop, kind, plan.id, { enabled: form.get("enabled") === "true", ...draft });
       const unknown = unknownPlaceholders(draft.subject + draft.html);
       return {
         ok: unknown.length === 0,
@@ -69,13 +77,13 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Result> =
       };
     }
     case "toggle": {
-      const current = await templateFor(shop, "WELCOME", plan.id);
+      const current = await templateFor(shop, kind, plan.id);
       const enabled = form.get("enabled") === "true";
-      await saveTemplate(shop, "WELCOME", plan.id, { enabled, subject: current.subject, html: current.html });
+      await saveTemplate(shop, kind, plan.id, { enabled, subject: current.subject, html: current.html });
       return { ok: true, message: enabled ? "Switched on." : "Switched off." };
     }
     case "reset":
-      await resetTemplate(shop, "WELCOME", plan.id);
+      await resetTemplate(shop, kind, plan.id);
       return { ok: true, message: "Back to the default wording." };
     case "preview":
       return { ok: true, preview: await previewEmail(admin, shop, plan.name, draft) };
@@ -89,10 +97,11 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Result> =
 };
 
 export default function Emails() {
-  const { look, welcomes, sending, welcomeOff } = useLoaderData<typeof loader>();
-  // One view at a time: the sender and look, or one plan's welcome email.
+  const { look, welcomes, seatWelcome, sending, welcomeOff } = useLoaderData<typeof loader>();
+  // One view at a time: the sender and look, one plan's welcome email, or the
+  // sub-account welcome ("seat").
   const [view, setView] = useState<string>("look");
-  const current = welcomes.find((w) => w.planId === view);
+  const current = view === "seat" ? seatWelcome : welcomes.find((w) => w.planId === view);
 
   return (
     <s-page heading="Emails">
@@ -117,6 +126,9 @@ export default function Emails() {
               {`Welcome: ${w.planName}${w.enabled ? "" : " (off)"}`}
             </s-button>
           ))}
+          <s-button slot="secondary-actions" variant={view === "seat" ? "primary" : "secondary"} onClick={() => setView("seat")}>
+            {`Sub-account welcome${seatWelcome.enabled ? "" : " (off)"}`}
+          </s-button>
         </s-button-group>
         {welcomes.length === 0 && (
           <s-paragraph color="subdued">
@@ -124,7 +136,7 @@ export default function Emails() {
           </s-paragraph>
         )}
         {view === "look" && <LookEditor look={look} />}
-        {current && <WelcomeEditor key={current.planId} welcome={current} />}
+        {current && <WelcomeEditor key={`${current.kind}:${current.planId}`} welcome={current} />}
       </s-stack>
     </s-page>
   );
@@ -194,22 +206,24 @@ function LookEditor({ look }: { look: Look }) {
 function WelcomeEditor({
   welcome,
 }: {
-  welcome: { planId: string; planName: string; enabled: boolean; subject: string; html: string; custom: boolean };
+  welcome: { kind: TemplateKind; planId: string; planName: string; enabled: boolean; subject: string; html: string; custom: boolean };
 }) {
   const fetcher = useFetcher<typeof action>();
+  const defaults = DEFAULTS[welcome.kind];
+  const title = welcome.kind === "SEAT_WELCOME" ? defaults.title : `Welcome: ${welcome.planName}`;
   const [subject, setSubject] = useState(welcome.subject);
   const [html, setHtml] = useState(welcome.html);
   const busy = fetcher.state !== "idle";
   const post = (intent: string, extra: Record<string, string> = {}) =>
-    fetcher.submit({ intent, planId: welcome.planId, subject, html, ...extra }, { method: "post" });
+    fetcher.submit({ intent, kind: welcome.kind, planId: welcome.planId, subject, html, ...extra }, { method: "post" });
   const shown = fetcher.data?.preview;
 
   return (
-    <s-section heading={`Welcome: ${welcome.planName}`}>
+    <s-section heading={title}>
       <s-stack gap="base">
         <s-switch
           label="Send this email"
-          details={DEFAULTS.WELCOME.when}
+          details={defaults.when}
           checked={welcome.enabled}
           onChange={() => post("toggle", { enabled: String(!welcome.enabled) })}
         ></s-switch>
@@ -244,8 +258,8 @@ function WelcomeEditor({
               tone="critical"
               onClick={() => {
                 post("reset");
-                setSubject(DEFAULTS.WELCOME.subject);
-                setHtml(DEFAULTS.WELCOME.html);
+                setSubject(defaults.subject);
+                setHtml(defaults.html);
               }}
             >
               Reset to default
@@ -258,7 +272,7 @@ function WelcomeEditor({
             <s-box border="base" borderRadius="base" padding="none">
               {/* Sandboxed: nothing in the HTML can run or reach the page. */}
               <iframe
-                title={`Welcome: ${welcome.planName} preview`}
+                title={`${title} preview`}
                 sandbox=""
                 srcDoc={shown.html}
                 style={{ width: "100%", height: 560, border: 0, background: "#f4f4f4" }}

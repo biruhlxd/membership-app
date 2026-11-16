@@ -1,9 +1,10 @@
-// Merchant-editable emails: the welcome email per plan, its {{placeholders}},
-// and the layout around it (logo, accent colour, footer). Pure functions: no
+// Merchant-editable emails: the welcome email per plan, the sub-account
+// welcome (a seat in an organization, given in Moodle), their {{placeholders}},
+// and the layout around them (logo, accent colour, footer). Pure functions: no
 // database, no Shopify, no sending (emails.server.ts). Adapted from EdTech
 // Bridge's editor (app/bridge/emails.ts there).
 
-export const TEMPLATE_KINDS = ["WELCOME"] as const;
+export const TEMPLATE_KINDS = ["WELCOME", "SEAT_WELCOME"] as const;
 export type TemplateKind = (typeof TEMPLATE_KINDS)[number];
 
 export interface Template {
@@ -23,6 +24,8 @@ export const PLACEHOLDERS = {
   membership_page_url: "The Membership page in their account (card, renewal, cancel)",
   store_url: "Your online store",
   button_color: "Your button colour, for your own buttons",
+  organization_name: "Sub-account welcome only: the organization or school giving the seat",
+  seat_type: 'Sub-account welcome only: the seat, e.g. "Instructor"',
 } as const;
 
 export type Vars = Record<keyof typeof PLACEHOLDERS, string>;
@@ -44,6 +47,19 @@ export const DEFAULTS: Record<TemplateKind, Template & { title: string; when: st
       "<p>{{shop_name}}</p>",
     ].join("\n"),
   },
+  SEAT_WELCOME: {
+    title: "Sub-account welcome",
+    when: "When an organization or school gives someone a seat (in Moodle). Once per seat.",
+    enabled: true,
+    subject: "{{organization_name}} added you to {{shop_name}}",
+    html: [
+      "<p>Hi {{first_name}},</p>",
+      "<p><strong>{{organization_name}}</strong> has given you a {{seat_type}} seat with {{shop_name}}. Your account is ready.</p>",
+      "<p>Sign in with this email address to get started.</p>",
+      button("{{sign_in_url}}", "Sign in"),
+      "<p>{{shop_name}}</p>",
+    ].join("\n"),
+  },
 };
 
 /** Sample values for the preview and the test email. */
@@ -57,6 +73,8 @@ export const SAMPLE: Vars = {
   membership_page_url: "https://shopify.com/account",
   store_url: "https://example.com",
   button_color: "#1a1a1a",
+  organization_name: "Riverside Skate School",
+  seat_type: "Instructor",
 };
 
 /** A shop's sender name and look. Empty fields: the store's own. */
