@@ -128,8 +128,14 @@ export function sellingPlanGroupUpdateInput(
   };
 }
 
+/**
+ * Marks this app's selling plan groups, so a theme can choose ours when another
+ * subscription app's plan is on the same product (Liquid: selling_plan_group.app_id).
+ */
+export const SELLING_PLAN_APP_ID = "biruh-membership";
+
 function groupFields(plan: PlanInput) {
-  return { name: plan.name, merchantCode: plan.name, options: GROUP_OPTIONS };
+  return { name: plan.name, merchantCode: plan.name, appId: SELLING_PLAN_APP_ID, options: GROUP_OPTIONS };
 }
 
 /** The group's one option label; each plan's value is its renewal period. */

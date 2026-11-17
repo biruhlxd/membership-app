@@ -101,6 +101,11 @@ describe("sellingPlanGroupInput", () => {
     expect(plan.options).toEqual(["Every year"]);
   });
 
+  it("marks the group as this app's, for themes choosing between subscription apps", () => {
+    expect(input.appId).toBe("biruh-membership");
+    expect(sellingPlanGroupUpdateInput(parsed.plan, "gid://shopify/SellingPlan/9").appId).toBe("biruh-membership");
+  });
+
   it("bills and renews on the chosen interval", () => {
     const policy = { recurring: { interval: "YEAR", intervalCount: 1 } };
     expect(plan.billingPolicy.recurring).toMatchObject(policy.recurring);
