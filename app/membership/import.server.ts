@@ -174,7 +174,10 @@ export async function importRow(
     return { imported: false as const, reason };
   };
   if (!customer) return fail("customer not found in Shopify");
-  const paymentMethod = customer.paymentMethods.nodes.find((p) => !p.revokedAt);
+  // The card the old contract charges, if the file names it and it is still
+  // saved; else the customer's first saved card.
+  const cards = customer.paymentMethods.nodes.filter((p) => !p.revokedAt);
+  const paymentMethod = cards.find((p) => p.id === row.paymentMethodId) ?? cards[0];
   if (!paymentMethod) return fail("customer has no saved card in Shopify");
   const member = await prisma.membership.findFirst({
     where: { shop, customerId: customer.id, planId: setup.planId, contractStatus: "ACTIVE" },

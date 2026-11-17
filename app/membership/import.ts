@@ -14,6 +14,7 @@ export const IMPORT_FIELDS = [
   "plan",
   "nextBillingDate",
   "price",
+  "paymentMethodId",
 ] as const;
 export type ImportField = (typeof IMPORT_FIELDS)[number];
 /** Column index per field; -1 when the file has no such column. */
@@ -27,6 +28,7 @@ export const FIELD_LABELS: Record<ImportField, string> = {
   plan: "Plan",
   nextBillingDate: "Next billing date",
   price: "Renewal price",
+  paymentMethodId: "Saved card (payment method ID)",
 };
 
 /** Read a CSV file: quoted fields, doubled quotes, CRLF, a leading BOM. */
@@ -76,9 +78,15 @@ const GUESSES: Record<ImportField, RegExp[]> = {
   email: [/^customeremail$/, /^email$/, /email/],
   customerId: [/^shopifycustomerid$/, /^customerid$/],
   status: [/^(subscription|contract)?status$/],
-  plan: [/^sellingplanname$/, /^(subscription|selling|membership)?plan(name)?$/, /^producttitle$/, /^product(name)?$/],
+  // Appstle: "Line 0 selling plan name".
+  plan: [/^(line\d+)?sellingplanname$/, /^(subscription|selling|membership)?plan(name)?$/, /^producttitle$/, /^product(name)?$/],
   nextBillingDate: [/^next(billing|order|payment|charge)date$/, /^next(billing|order|payment|charge)/],
-  price: [/^(recurring|renewal|line|current)?price$/, /^(recurring|renewal)?amount$/, /price/],
+  // Only a column that says it is the renewal price: a line's price is often
+  // the first-year price (Appstle's "Line 0 price amount"), and a delivery
+  // price is not the membership's. Without one, the plan's renewal price.
+  price: [/^(recurring|renewal)price(amount)?$/, /^(recurring|renewal)amount$/],
+  // Appstle: "Payment ID", the customer's saved card the contract charges.
+  paymentMethodId: [/^(customer)?paymentmethodid$/, /^paymentid$/],
 };
 
 function key(header: string) {
@@ -112,6 +120,8 @@ export interface ImportRow {
   plan: string;
   nextBillingDate: string | null; // YYYY-MM-DD
   price: string | null; // decimal, e.g. "100.00"
+  /** The saved card the old contract charges, when the file says (gid). */
+  paymentMethodId: string | null;
   /** Why the row will be skipped; empty when it can be imported. */
   problems: string[];
 }
@@ -168,6 +178,12 @@ export function checkRows(
     const nextBillingDate = parseDate(cell(row, "nextBillingDate"));
     const priceCell = cell(row, "price");
     const price = priceCell ? parsePrice(priceCell) : null;
+    const card = cell(row, "paymentMethodId");
+    const paymentMethodId = /^gid:\/\/shopify\/CustomerPaymentMethod\/[A-Za-z0-9]+$/.test(card)
+      ? card
+      : /^[A-Za-z0-9]+$/.test(card)
+        ? `gid://shopify/CustomerPaymentMethod/${card}`
+        : null;
 
     if (!sourceId) problems.push("no contract ID");
     else if (seen.has(sourceId)) problems.push("contract ID appears twice in the file");
@@ -178,7 +194,7 @@ export function checkRows(
     else if (nextBillingDate <= today) problems.push("next billing date has passed");
     if (priceCell && !price) problems.push(`price "${priceCell}" not readable`);
 
-    result.push({ line: i + 2, sourceId, email, customerId, plan, nextBillingDate, price, problems });
+    result.push({ line: i + 2, sourceId, email, customerId, plan, nextBillingDate, price, paymentMethodId, problems });
   });
   return result;
 }

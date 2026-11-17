@@ -32,6 +32,7 @@ const row: ImportRow = {
   plan: "Basic",
   nextBillingDate: "2027-01-15",
   price: null,
+  paymentMethodId: null,
   problems: [],
 };
 
@@ -85,6 +86,18 @@ describe("importRow", () => {
 
     expect(await importRow(admin, SHOP, "appstle", row, setup)).toEqual({ imported: false, reason: "already imported" });
     expect(calls.filter((c) => c.query.includes("importContract"))).toHaveLength(1);
+  });
+
+  it("charges the card the file names, if it is still saved", async () => {
+    const cards = [
+      { id: "gid://shopify/CustomerPaymentMethod/c1", revokedAt: null },
+      { id: "gid://shopify/CustomerPaymentMethod/c2", revokedAt: null },
+    ];
+    const named = shopify({ cards });
+    await importRow(named.admin, SHOP, "appstle", { ...row, paymentMethodId: "gid://shopify/CustomerPaymentMethod/c2" }, setup);
+    expect(named.calls.find((c) => c.query.includes("importContract"))!.variables.input).toMatchObject({
+      contract: { paymentMethodId: "gid://shopify/CustomerPaymentMethod/c2" },
+    });
   });
 
   it("uses the file's price when it has one", async () => {
