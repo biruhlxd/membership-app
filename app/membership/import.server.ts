@@ -10,7 +10,7 @@ import { syncContract } from "./contracts.server";
 import { refreshSchedule } from "./renewals.server";
 import { evaluateCustomer } from "./credentials.server";
 import { getPlan, type Admin } from "./plans.server";
-import type { ImportRow } from "./import";
+import { billingAnchor, type ImportRow } from "./import";
 
 const CUSTOMER_BY_EMAIL = `#graphql
   query importCustomer($email: String!) {
@@ -64,6 +64,29 @@ const PLAN_SETUP = `#graphql
     }
     shop {
       currencyCode
+    }
+  }`;
+
+const FIRST_CYCLE = `#graphql
+  query importFirstCycle($id: ID!) {
+    subscriptionBillingCycles(
+      contractId: $id
+      first: 1
+      billingCyclesIndexRangeSelector: { startIndex: 1, endIndex: 1 }
+    ) {
+      nodes {
+        billingAttemptExpectedDate
+      }
+    }
+  }`;
+
+const CANCEL_IMPORTED = `#graphql
+  mutation importContractCancel($id: ID!) {
+    subscriptionContractCancel(subscriptionContractId: $id) {
+      userErrors {
+        field
+        message
+      }
     }
   }`;
 
@@ -192,7 +215,12 @@ export async function importRow(
   });
 
   const price = row.price ?? setup.renewalPrice;
-  const cadence = { interval: setup.interval, intervalCount: setup.intervalCount };
+  // Anchored to their renewal day, or Shopify would bill a full period after today.
+  const cadence = {
+    interval: setup.interval,
+    intervalCount: setup.intervalCount,
+    anchors: [billingAnchor(row.nextBillingDate!, setup.interval)],
+  };
   const { subscriptionContractAtomicCreate: created } = await gql<{
     subscriptionContractAtomicCreate: {
       contract: { id: string } | null;
@@ -237,6 +265,24 @@ export async function importRow(
   if (!contractId) {
     const errors = created?.userErrors.map((e) => e.message).join(" ") || "no response from Shopify";
     return fail(`Shopify refused the contract: ${errors}`);
+  }
+  // The first billing cycle must fall on their renewal day; if Shopify put it
+  // anywhere else, take the contract back rather than bill on the wrong day.
+  const { subscriptionBillingCycles } = await gql<{
+    subscriptionBillingCycles: { nodes: { billingAttemptExpectedDate: string }[] } | null;
+  }>(admin, FIRST_CYCLE, { id: contractId });
+  const firstBilling = subscriptionBillingCycles?.nodes[0]?.billingAttemptExpectedDate?.slice(0, 10);
+  if (firstBilling !== row.nextBillingDate) {
+    const reason = `Shopify would bill on ${firstBilling ?? "an unknown date"} instead of ${row.nextBillingDate}; nothing was kept`;
+    // Recorded with the contract before cancelling, so the cancel webhook
+    // leaves the customer's tags alone (contracts.server.ts, syncContract).
+    await prisma.contractImport.update({ where, data: { contractId, status: "FAILED", error: reason } });
+    await gql(admin, CANCEL_IMPORTED, { id: contractId });
+    await prisma.membership.updateMany({
+      where: { shop, contractId },
+      data: { contractStatus: "CANCELLED", status: "CANCELLED", accessEndsAt: new Date(), welcomeDueAt: null },
+    });
+    return { imported: false, reason };
   }
   await prisma.contractImport.update({ where, data: { contractId, status: "DONE", error: null } });
 

@@ -36,10 +36,16 @@ const row: ImportRow = {
   problems: [],
 };
 
-function shopify(options: { cards?: { id: string; revokedAt: string | null }[]; refuse?: boolean } = {}) {
+function shopify(
+  options: { cards?: { id: string; revokedAt: string | null }[]; refuse?: boolean; firstBilling?: string } = {},
+) {
   const customer = { id: ANA, paymentMethods: { nodes: options.cards ?? [{ id: "gid://shopify/CustomerPaymentMethod/c1", revokedAt: null }] } };
   return fakeAdmin((query) => {
     if (query.includes("importCustomer(")) return { data: { customerByIdentifier: customer } };
+    if (query.includes("importFirstCycle")) {
+      return { data: { subscriptionBillingCycles: { nodes: [{ billingAttemptExpectedDate: `${options.firstBilling ?? row.nextBillingDate}T00:00:00Z` }] } } };
+    }
+    if (query.includes("importContractCancel")) return { data: { subscriptionContractCancel: { userErrors: [] } } };
     if (query.includes("importContract")) {
       return options.refuse
         ? { data: { subscriptionContractAtomicCreate: { contract: null, userErrors: [{ message: "Payment method is invalid" }] } } }
@@ -74,7 +80,7 @@ describe("importRow", () => {
     const { admin, calls } = shopify();
     expect(await importRow(admin, SHOP, "appstle", row, setup)).toEqual({ imported: true, contractId: CONTRACT });
 
-    const create = calls.find((c) => c.query.includes("importContract"))!;
+    const create = calls.find((c) => c.query.includes("importContract("))!;
     expect(create.variables.input).toMatchObject({
       customerId: ANA,
       nextBillingDate: "2027-01-15",
@@ -95,7 +101,30 @@ describe("importRow", () => {
     expect(await prisma.contractImport.findFirst()).toMatchObject({ status: "DONE", contractId: CONTRACT });
 
     expect(await importRow(admin, SHOP, "appstle", row, setup)).toEqual({ imported: false, reason: "already imported" });
-    expect(calls.filter((c) => c.query.includes("importContract"))).toHaveLength(1);
+    expect(calls.filter((c) => c.query.includes("importContract("))).toHaveLength(1);
+  });
+
+  it("anchors billing to their renewal day", async () => {
+    const { admin, calls } = shopify();
+    await importRow(admin, SHOP, "appstle", row, setup);
+    expect(calls.find((c) => c.query.includes("importContract("))!.variables.input).toMatchObject({
+      contract: {
+        billingPolicy: { interval: "YEAR", intervalCount: 1, anchors: [{ type: "YEARDAY", month: 1, day: 15 }] },
+        deliveryPolicy: { anchors: [{ type: "YEARDAY", month: 1, day: 15 }] },
+        deliveryPrice: "0.00",
+      },
+    });
+  });
+
+  it("takes the contract back if Shopify would bill on another day, without touching tags", async () => {
+    const { admin, calls } = shopify({ firstBilling: "2027-11-17" });
+    expect(await importRow(admin, SHOP, "appstle", row, setup)).toEqual({
+      imported: false,
+      reason: "Shopify would bill on 2027-11-17 instead of 2027-01-15; nothing was kept",
+    });
+    expect(calls.some((c) => c.query.includes("importContractCancel"))).toBe(true);
+    expect(calls.some((c) => c.query.includes("membershipTagsRemove"))).toBe(false);
+    expect(await prisma.contractImport.findFirst()).toMatchObject({ status: "FAILED", contractId: CONTRACT });
   });
 
   it("charges the card the file names, if it is still saved", async () => {
@@ -105,7 +134,7 @@ describe("importRow", () => {
     ];
     const named = shopify({ cards });
     await importRow(named.admin, SHOP, "appstle", { ...row, paymentMethodId: "gid://shopify/CustomerPaymentMethod/c2" }, setup);
-    expect(named.calls.find((c) => c.query.includes("importContract"))!.variables.input).toMatchObject({
+    expect(named.calls.find((c) => c.query.includes("importContract("))!.variables.input).toMatchObject({
       contract: { paymentMethodId: "gid://shopify/CustomerPaymentMethod/c2" },
     });
   });
@@ -113,7 +142,7 @@ describe("importRow", () => {
   it("uses the file's price when it has one", async () => {
     const { admin, calls } = shopify();
     await importRow(admin, SHOP, "appstle", { ...row, price: "20.00" }, setup);
-    const create = calls.find((c) => c.query.includes("importContract"))!;
+    const create = calls.find((c) => c.query.includes("importContract("))!;
     expect(create.variables.input).toMatchObject({ lines: [{ line: { currentPrice: "20.00" } }] });
   });
 
@@ -139,7 +168,7 @@ describe("importRow", () => {
   it("skips a customer without a saved card", async () => {
     const { admin, calls } = shopify({ cards: [] });
     expect(await importRow(admin, SHOP, "appstle", row, setup)).toEqual({ imported: false, reason: "customer has no saved card in Shopify" });
-    expect(calls.some((c) => c.query.includes("importContract"))).toBe(false);
+    expect(calls.some((c) => c.query.includes("importContract("))).toBe(false);
     expect(await prisma.contractImport.findFirst()).toMatchObject({ status: "FAILED" });
   });
 

@@ -140,6 +140,13 @@ export async function syncContract(
     },
   });
 
+  // An import the app took back (import.server.ts) leaves the customer's tags
+  // alone: they still come from the other app's subscription.
+  const takenBack = await prisma.contractImport.findFirst({
+    where: { shop, contractId: contract.id, status: "FAILED" },
+    select: { id: true },
+  });
+  if (takenBack) return { synced: true, status, tags: { add: [], remove: [] } };
   const tags = await syncCustomerTags(admin, shop, contract.customer);
 
   // An organization plan: make sure the buyer has their organization, and

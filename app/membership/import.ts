@@ -241,3 +241,16 @@ export function suggestPlanId(value: string, plans: { id: string; name: string }
   if (!scored[0] || scored[0].score === 0 || scored[1]?.score === scored[0].score) return null;
   return scored[0].id;
 }
+
+/**
+ * The billing anchor that keeps a moved member on their own renewal day:
+ * Shopify counts billing cycles from the day a contract is made unless an
+ * anchor says which day of the year (or month) it bills.
+ */
+export function billingAnchor(
+  nextBillingDate: string, // YYYY-MM-DD
+  interval: "MONTH" | "YEAR",
+): { type: "YEARDAY"; month: number; day: number } | { type: "MONTHDAY"; day: number } {
+  const [, month, day] = nextBillingDate.split("-").map(Number);
+  return interval === "YEAR" ? { type: "YEARDAY", month, day } : { type: "MONTHDAY", day };
+}
