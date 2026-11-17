@@ -7,7 +7,7 @@ vi.mock("nodemailer", () => ({
   default: { createTransport: () => ({ sendMail: async (m: { to: string }) => void sent.push(m) }) },
 }));
 import { importRow, type PlanSetup } from "./import.server";
-import { notifyWelcome } from "./emails.server";
+import { notifyWelcome, sendTestEmail } from "./emails.server";
 import type { ImportRow } from "./import";
 
 const SHOP = "test-shop.myshopify.com";
@@ -167,6 +167,19 @@ describe("importRow", () => {
     process.env.EMAILS_OFF = "welcome, LAPSED";
     expect(await notifyWelcome(admin, m.id)).toBe(false);
     delete process.env.EMAILS_OFF;
+    expect(await notifyWelcome(admin, m.id)).toBe(true);
+  });
+
+  it("holds every email while EMAILS_OFF is ALL, and sends it once lifted", async () => {
+    const { admin } = shopify();
+    const m = await prisma.membership.create({
+      data: { shop: SHOP, contractId: "gid://shopify/SubscriptionContract/1", customerId: ANA, planId: setup.planId, contractStatus: "ACTIVE", status: "ACTIVE" },
+    });
+    process.env.EMAILS_OFF = "all";
+    expect(await notifyWelcome(admin, m.id)).toBe(false);
+    expect(await sendTestEmail(admin, SHOP, "Basic", { subject: "Hi", html: "<p>Hi</p>" })).toMatchObject({ ok: false });
+    delete process.env.EMAILS_OFF;
+    expect(sent).toHaveLength(0);
     expect(await notifyWelcome(admin, m.id)).toBe(true);
   });
 

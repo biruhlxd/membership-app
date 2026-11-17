@@ -31,7 +31,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     ),
     seatWelcome: { kind: "SEAT_WELCOME" as TemplateKind, planId: "", planName: "", ...(await templateFor(shop, "SEAT_WELCOME")) },
     sending: Boolean(process.env.SMTP_HOST && process.env.EMAIL_FROM),
-    welcomeOff: (process.env.EMAILS_OFF ?? "").toUpperCase().includes("WELCOME"),
+    welcomeOff: /\b(WELCOME|ALL)\b/.test((process.env.EMAILS_OFF ?? "").toUpperCase()),
   };
 };
 

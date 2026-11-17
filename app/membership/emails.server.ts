@@ -139,10 +139,17 @@ const money = (amount: string | null, currency: string | null) =>
 /**
  * Emails the server never sends (env EMAILS_OFF, e.g. "WELCOME"): for a
  * single-store copy where another system already sends them (USSEA's
- * welcome comes from its own onboarding).
+ * welcome comes from its own onboarding). "ALL" holds every email, e.g.
+ * while moving members from another app; held emails are not recorded as
+ * sent, so they still go out once it is lifted.
  */
 function emailsOff(): Set<string> {
   return new Set((process.env.EMAILS_OFF ?? "").split(",").map((k) => k.trim().toUpperCase()).filter(Boolean));
+}
+
+function emailOff(kind: string): boolean {
+  const off = emailsOff();
+  return off.has("ALL") || off.has(kind);
 }
 
 async function notify(
@@ -161,7 +168,7 @@ async function notify(
     email: string;
   }) => EmailContent,
 ): Promise<boolean> {
-  if (emailsOff().has(kind)) return false;
+  if (emailOff(kind)) return false;
   const already = await prisma.emailLog.findUnique({
     where: { membershipId_kind_key: { membershipId, kind, key } },
   });
@@ -413,6 +420,7 @@ export async function sendTestEmail(
   planName: string,
   draft: Pick<Template, "subject" | "html">,
 ): Promise<{ ok: true; to: string } | { ok: false; message: string }> {
+  if (emailOff("TEST")) return { ok: false, message: "Emails are switched off on the server (EMAILS_OFF), so no test was sent." };
   const { vars, look, contactEmail, shopName } = await sampleFor(admin, shop, planName);
   const to = process.env.EMAIL_REPLY_TO || contactEmail;
   if (!to) return { ok: false, message: "Your store has no contact email to send the test to." };
@@ -431,6 +439,7 @@ export async function sendSeatWelcome(
   shop: string,
   seat: { email: string; firstName: string; organizationName: string; seatType: string },
 ): Promise<boolean> {
+  if (emailOff("SEAT_WELCOME")) return false;
   const template = await templateFor(shop, "SEAT_WELCOME");
   if (!template.enabled || !seat.email.includes("@")) return false;
   const { vars, look, contactEmail, shopName } = await sampleFor(admin, shop, "");
@@ -519,6 +528,7 @@ export async function notifySeatInvite(
   seat: { id: string; email: string; seatName: string },
   organization: { membershipId: string; adminCustomerId: string },
 ): Promise<boolean> {
+  if (emailOff("SEAT_INVITE")) return false;
   const key = emailKey("SEAT_INVITE", { seatId: seat.id });
   const where = {
     membershipId_kind_key: { membershipId: organization.membershipId, kind: "SEAT_INVITE", key },
@@ -567,6 +577,7 @@ const CREDENTIAL_SENT_FIELD = {
  * before sending). Returns false when already sent or there is no address.
  */
 export async function notifyCredential(admin: Admin, credentialId: string, kind: CredentialEmail): Promise<boolean> {
+  if (emailOff(`CREDENTIAL_${kind}`)) return false;
   const field = CREDENTIAL_SENT_FIELD[kind];
   // Claim the email first: two runs at once can't both send it.
   const claimed = await prisma.credential.updateMany({
