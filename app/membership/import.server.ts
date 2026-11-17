@@ -217,9 +217,15 @@ export async function importRow(
             sellingPlanId: setup.sellingPlanId,
             sellingPlanName: setup.sellingPlanName,
             // Every cycle of a moved member is a renewal: one price, no
-            // joining price.
+            // joining price. Shopify wants at least one cycle step, so the
+            // renewal price "after cycle 1" too (the shape the plans have).
             currentPrice: price,
-            pricingPolicy: { basePrice: price, cycleDiscounts: [] },
+            pricingPolicy: {
+              basePrice: price,
+              cycleDiscounts: [
+                { afterCycle: 1, adjustmentType: "PRICE", adjustmentValue: { fixedValue: price }, computedPrice: price },
+              ],
+            },
           },
         },
       ],

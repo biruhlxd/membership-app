@@ -79,7 +79,17 @@ describe("importRow", () => {
       customerId: ANA,
       nextBillingDate: "2027-01-15",
       contract: { paymentMethodId: "gid://shopify/CustomerPaymentMethod/c1", billingPolicy: { interval: "YEAR", intervalCount: 1 } },
-      lines: [{ line: { currentPrice: "25.00", pricingPolicy: { basePrice: "25.00", cycleDiscounts: [] } } }],
+      lines: [
+        {
+          line: {
+            currentPrice: "25.00",
+            pricingPolicy: {
+              basePrice: "25.00",
+              cycleDiscounts: [{ afterCycle: 1, adjustmentType: "PRICE", adjustmentValue: { fixedValue: "25.00" }, computedPrice: "25.00" }],
+            },
+          },
+        },
+      ],
     });
     expect(await prisma.membership.count({ where: { contractId: CONTRACT } })).toBe(1);
     expect(await prisma.contractImport.findFirst()).toMatchObject({ status: "DONE", contractId: CONTRACT });
