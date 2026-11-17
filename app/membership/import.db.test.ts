@@ -33,6 +33,8 @@ const row: ImportRow = {
   nextBillingDate: "2027-01-15",
   price: null,
   paymentMethodId: null,
+  memberSince: "2025-01-15",
+  lastPaid: "2026-01-15",
   problems: [],
 };
 
@@ -97,7 +99,10 @@ describe("importRow", () => {
         },
       ],
     });
-    expect(await prisma.membership.count({ where: { contractId: CONTRACT } })).toBe(1);
+    expect(await prisma.membership.findFirstOrThrow({ where: { contractId: CONTRACT } })).toMatchObject({
+      createdAt: new Date("2025-01-15T12:00:00Z"),
+      lastPaidAt: new Date("2026-01-15T12:00:00Z"),
+    });
     expect(await prisma.contractImport.findFirst()).toMatchObject({ status: "DONE", contractId: CONTRACT });
 
     expect(await importRow(admin, SHOP, "appstle", row, setup)).toEqual({ imported: false, reason: "already imported" });

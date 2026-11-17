@@ -26,7 +26,7 @@ describe("parseCsv", () => {
 describe("guessColumns", () => {
   it("finds Appstle-style headers", () => {
     const map = guessColumns(parseCsv(CSV)[0]);
-    expect(map).toEqual({ sourceId: 0, email: 1, customerId: -1, status: 2, plan: 3, nextBillingDate: 4, price: 5, paymentMethodId: -1 });
+    expect(map).toEqual({ sourceId: 0, email: 1, customerId: -1, status: 2, plan: 3, nextBillingDate: 4, price: 5, paymentMethodId: -1, memberSince: -1, lastPaid: -1 });
   });
 
   it("reads Appstle's real export: no price column (first-year price there), the card it charges", () => {
@@ -43,6 +43,8 @@ describe("guessColumns", () => {
     expect(name("nextBillingDate")).toBe("Next order date");
     expect(name("price")).toBeNull();
     expect(name("paymentMethodId")).toBe("Payment ID");
+    expect(name("memberSince")).toBe("Created at");
+    expect(name("lastPaid")).toBe("Last order date");
 
     const row = headers.map(() => "");
     const set = (h: string, v: string) => (row[headers.indexOf(h)] = v);
@@ -51,12 +53,15 @@ describe("guessColumns", () => {
     set("Customer email", "ana@example.com");
     set("Next order date", "2027-10-10T20:00:00Z");
     set("Payment ID", "39fa047175612f60701a094379fda4c0");
+    set("Created at", "2026-10-10T20:38:40Z[UTC]");
     set("Line 0 selling plan name", "Annual Instructor Certification");
     const [checked] = checkRows([row], map, () => "plan-1", "2026-11-17");
     expect(checked).toMatchObject({
       sourceId: "171226431542",
       nextBillingDate: "2027-10-10",
       price: null,
+      memberSince: "2026-10-10",
+      lastPaid: "2026-10-10",
       paymentMethodId: "gid://shopify/CustomerPaymentMethod/39fa047175612f60701a094379fda4c0",
       problems: [],
     });

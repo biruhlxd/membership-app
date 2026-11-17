@@ -15,6 +15,8 @@ export const IMPORT_FIELDS = [
   "nextBillingDate",
   "price",
   "paymentMethodId",
+  "memberSince",
+  "lastPaid",
 ] as const;
 export type ImportField = (typeof IMPORT_FIELDS)[number];
 /** Column index per field; -1 when the file has no such column. */
@@ -29,6 +31,8 @@ export const FIELD_LABELS: Record<ImportField, string> = {
   nextBillingDate: "Next billing date",
   price: "Renewal price",
   paymentMethodId: "Saved card (payment method ID)",
+  memberSince: "Member since",
+  lastPaid: "Last paid",
 };
 
 /** Read a CSV file: quoted fields, doubled quotes, CRLF, a leading BOM. */
@@ -87,6 +91,9 @@ const GUESSES: Record<ImportField, RegExp[]> = {
   price: [/^(recurring|renewal)price(amount)?$/, /^(recurring|renewal)amount$/],
   // Appstle: "Payment ID", the customer's saved card the contract charges.
   paymentMethodId: [/^(customer)?paymentmethodid$/, /^paymentid$/],
+  // Appstle: "Created at" (the first order), "Last order date" (empty before a renewal).
+  memberSince: [/^(member)?since$/, /^createdat$/, /^startdate$/],
+  lastPaid: [/^lastpaid(date|at)?$/, /^lastorderdate$/],
 };
 
 function key(header: string) {
@@ -122,6 +129,9 @@ export interface ImportRow {
   price: string | null; // decimal, e.g. "100.00"
   /** The saved card the old contract charges, when the file says (gid). */
   paymentMethodId: string | null;
+  /** When they joined, and last paid (YYYY-MM-DD), for the Members page. */
+  memberSince: string | null;
+  lastPaid: string | null;
   /** Why the row will be skipped; empty when it can be imported. */
   problems: string[];
 }
@@ -178,6 +188,9 @@ export function checkRows(
     const nextBillingDate = parseDate(cell(row, "nextBillingDate"));
     const priceCell = cell(row, "price");
     const price = priceCell ? parsePrice(priceCell) : null;
+    const memberSince = parseDate(cell(row, "memberSince"));
+    // Before their first renewal, the joining payment.
+    const lastPaid = parseDate(cell(row, "lastPaid")) ?? memberSince;
     const card = cell(row, "paymentMethodId");
     const paymentMethodId = /^gid:\/\/shopify\/CustomerPaymentMethod\/[A-Za-z0-9]+$/.test(card)
       ? card
@@ -194,7 +207,7 @@ export function checkRows(
     else if (nextBillingDate <= today) problems.push("next billing date has passed");
     if (priceCell && !price) problems.push(`price "${priceCell}" not readable`);
 
-    result.push({ line: i + 2, sourceId, email, customerId, plan, nextBillingDate, price, paymentMethodId, problems });
+    result.push({ line: i + 2, sourceId, email, customerId, plan, nextBillingDate, price, paymentMethodId, memberSince, lastPaid, problems });
   });
   return result;
 }

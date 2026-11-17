@@ -293,7 +293,19 @@ export async function importRow(
       where: { shop_contractId: { shop, contractId } },
       select: { id: true },
     });
-    if (membership) await refreshSchedule(admin, membership.id);
+    if (membership) {
+      // Member since and last paid as in the other app, not today (Members page).
+      const day = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`) : undefined);
+      const since = day(row.memberSince);
+      await prisma.membership.update({
+        where: { id: membership.id },
+        data: {
+          createdAt: since && since < new Date() ? since : undefined,
+          lastPaidAt: day(row.lastPaid),
+        },
+      });
+      await refreshSchedule(admin, membership.id);
+    }
     await evaluateCustomer(admin, shop, customer.id).catch((error) =>
       console.error(`credentials for ${customer.id} on ${shop} failed:`, error),
     );
