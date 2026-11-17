@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkRows, guessColumns, parseCsv, parseDate, parsePrice, planValues } from "./import";
+import { checkRows, guessColumns, parseCsv, parseDate, parsePrice, planValues, suggestPlanId } from "./import";
 
 const BOM = String.fromCharCode(0xfeff);
 const CSV = `${BOM}Contract ID,Customer Email,Status,Selling Plan Name,Next Billing Date,Recurring Price\r
@@ -96,5 +96,27 @@ describe("checkRows", () => {
 
   it("lists the active rows' plans", () => {
     expect(planValues(rows, map)).toEqual(["Basic Membership, yearly", "Coach", "Unknown"]);
+  });
+});
+
+describe("suggestPlanId", () => {
+  const plans = [
+    { id: "basic", name: "USSEA Basic Membership" },
+    { id: "instructor", name: "USSEA Instructor Membership" },
+    { id: "coach", name: "Competitive Coach Certification" },
+    { id: "org", name: "Organization Membership" },
+    { id: "school", name: "Skateboard PE School Membership" },
+  ];
+
+  it("matches Appstle's plan names to USSEA's by their telling words", () => {
+    expect(suggestPlanId("Annual Instructor Certification", plans)).toBe("instructor");
+    expect(suggestPlanId("Annual Coach Certification", plans)).toBe("coach");
+    expect(suggestPlanId("Skateboard Basic", plans)).toBe("basic");
+    expect(suggestPlanId("PE School Annual", plans)).toBe("school");
+    expect(suggestPlanId("organization membership", plans)).toBe("org");
+  });
+
+  it("suggests nothing when no telling word is shared", () => {
+    expect(suggestPlanId("Annual Membership", plans)).toBeNull();
   });
 });

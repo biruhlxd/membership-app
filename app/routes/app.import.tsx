@@ -11,6 +11,7 @@ import {
   IMPORT_FIELDS,
   parseCsv,
   planValues,
+  suggestPlanId,
   type ColumnMap,
   type ImportRow,
 } from "../membership/import";
@@ -60,13 +61,9 @@ function readForm(form: FormData, plans: Plans) {
   return { map, planOf: (plan: string) => matched.get(plan) ?? null };
 }
 
-/** A plan's id from the file's plan value, when the names clearly match. */
+/** A plan's id from the file's plan value, when the names clearly match (import.ts, suggestPlan). */
 function suggestPlan(value: string, plans: Plans) {
-  const v = value.toLowerCase();
-  return (
-    plans.find((p) => p.name.toLowerCase() === v) ??
-    plans.find((p) => v.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(v))
-  )?.id ?? "";
+  return suggestPlanId(value, plans) ?? "";
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {

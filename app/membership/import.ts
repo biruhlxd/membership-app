@@ -210,3 +210,34 @@ export function planValues(rows: string[][], map: ColumnMap): string[] {
   }
   return [...values].sort();
 }
+
+// Words every plan name has, which say nothing about which plan it is.
+const GENERIC_WORDS = new Set([
+  "a", "an", "and", "the", "of", "for", "ussea", "plan", "plans", "membership", "member", "annual", "yearly",
+  "monthly", "year", "month", "subscription", "certification", "program", "renewal",
+]);
+
+const words = (name: string) =>
+  name.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w && !GENERIC_WORDS.has(w));
+
+/**
+ * The plan of this app the other app's plan most likely is: the same name, else
+ * the one sharing the most telling words ("Annual Instructor Certification" →
+ * "USSEA Instructor Membership"). Null when none shares a word, or two tie.
+ */
+export function suggestPlanId(value: string, plans: { id: string; name: string }[]): string | null {
+  const exact = plans.find((p) => p.name.trim().toLowerCase() === value.trim().toLowerCase());
+  if (exact) return exact.id;
+  const mine = new Set(words(value));
+  // Shared words count first; a tie goes to the plan more of whose name matched
+  // ("Skateboard Basic": Basic, all of it, over "Skateboard PE School", a third).
+  const scored = plans
+    .map((p) => {
+      const theirs = words(p.name);
+      const shared = theirs.filter((w) => mine.has(w)).length;
+      return { id: p.id, score: shared === 0 ? 0 : shared + shared / theirs.length };
+    })
+    .sort((a, b) => b.score - a.score);
+  if (!scored[0] || scored[0].score === 0 || scored[1]?.score === scored[0].score) return null;
+  return scored[0].id;
+}
