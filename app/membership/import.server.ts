@@ -208,6 +208,8 @@ export async function importRow(
         paymentMethodId: paymentMethod.id,
         billingPolicy: cadence,
         deliveryPolicy: cadence,
+        // Nothing is shipped, but Shopify requires a delivery price.
+        deliveryPrice: "0.00",
       },
       lines: [
         {
