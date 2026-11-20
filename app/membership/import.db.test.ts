@@ -151,6 +151,15 @@ describe("importRow", () => {
     expect(create.variables.input).toMatchObject({ lines: [{ line: { currentPrice: "20.00" } }] });
   });
 
+  it("imports a free renewal at 0, not at the plan's price", async () => {
+    const { admin, calls } = shopify();
+    await importRow(admin, SHOP, "appstle", { ...row, price: "0.00" }, setup);
+    const create = calls.find((c) => c.query.includes("importContract("))!;
+    expect(create.variables.input).toMatchObject({
+      lines: [{ line: { currentPrice: "0.00", pricingPolicy: { basePrice: "0.00" } } }],
+    });
+  });
+
   it("sends no welcome email to an imported member", async () => {
     const { admin } = shopify();
     await importRow(admin, SHOP, "appstle", row, setup);

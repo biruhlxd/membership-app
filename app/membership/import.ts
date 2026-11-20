@@ -148,12 +148,15 @@ export function parseDate(value: string): string | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
 }
 
-/** A money amount without its currency sign or thousands commas. */
+/**
+ * A money amount without its currency sign or thousands commas. 0 is a
+ * price: a member whose code took 100% off every renewal renews for free.
+ */
 export function parsePrice(value: string): string | null {
   const v = value.replace(/[^0-9.]/g, "");
   if (!v) return null;
   const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n.toFixed(2) : null;
+  return Number.isFinite(n) && n >= 0 ? n.toFixed(2) : null;
 }
 
 function customerGid(value: string): string | null {

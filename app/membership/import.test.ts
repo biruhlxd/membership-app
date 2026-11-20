@@ -79,6 +79,11 @@ describe("parseDate / parsePrice", () => {
     expect(parsePrice("$1,125.5")).toBe("1125.50");
     expect(parsePrice("free")).toBeNull();
   });
+
+  it("reads 0 as a free renewal, not as no price", () => {
+    expect(parsePrice("$0.00")).toBe("0.00");
+    expect(parsePrice("0")).toBe("0.00");
+  });
 });
 
 describe("checkRows", () => {
